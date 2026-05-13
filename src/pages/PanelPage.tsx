@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
 import { supabase, type DeudoFichado } from '../lib/supabase'
 
 const FORM_URL = `${window.location.origin}/`
 
 export default function PanelPage() {
+  const navigate = useNavigate()
   const [sessions, setSessions] = useState<DeudoFichado[]>([])
   const [loading, setLoading] = useState(true)
   const qrRef = useRef<HTMLDivElement>(null)
@@ -74,12 +76,20 @@ export default function PanelPage() {
           <h1 className="font-semibold text-base">Panel AURA — Paraíso de Paz</h1>
           <p className="text-[#B8956A] text-xs">Sesiones en tiempo real</p>
         </div>
-        <button
-          onClick={loadSessions}
-          className="ml-auto text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-        >
-          Actualizar
-        </button>
+        <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => navigate('/alta-servicio')}
+            className="text-xs bg-[#B8956A] text-white px-3 py-1.5 rounded-lg hover:bg-[#a07a55] transition-colors font-medium"
+          >
+            + Alta del servicio
+          </button>
+          <button
+            onClick={loadSessions}
+            className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            Actualizar
+          </button>
+        </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-6">
