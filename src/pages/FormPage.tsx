@@ -172,7 +172,7 @@ export default function FormPage() {
               onChange={handleChange}
               required
               className={INPUT_CLASS}
-              placeholder="Ingrese su nombre completo"
+              placeholder="Ej: María González"
               autoComplete="name"
             />
           </Field>
