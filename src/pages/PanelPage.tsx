@@ -62,12 +62,14 @@ export default function PanelPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#1B3A6B] text-white px-6 py-4 flex items-center gap-4">
-        <img
-          src="/Paraiso_de_Paz.png"
-          alt=""
-          className="w-10 h-10 object-contain"
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
+        <div className="w-10 h-10 rounded-full overflow-hidden border border-[#B8956A]/40 flex-shrink-0">
+          <img
+            src="/Paraiso_de_Paz.png"
+            alt=""
+            className="w-full h-full object-cover"
+            onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+          />
+        </div>
         <div>
           <h1 className="font-semibold text-base">Panel AURA — Paraíso de Paz</h1>
           <p className="text-[#B8956A] text-xs">Sesiones en tiempo real</p>

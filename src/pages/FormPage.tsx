@@ -304,12 +304,14 @@ export default function FormPage() {
 function Header() {
   return (
     <div className="bg-[#1B3A6B] text-white py-7 px-4 text-center">
-      <img
-        src="/Paraiso_de_Paz.png"
-        alt="Paraíso de Paz"
-        className="w-20 h-20 object-contain mx-auto mb-3"
-        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-      />
+      <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3 border-2 border-[#B8956A]/40">
+        <img
+          src="/Paraiso_de_Paz.png"
+          alt="Paraíso de Paz"
+          className="w-full h-full object-cover"
+          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+        />
+      </div>
       <h1 className="text-lg font-semibold tracking-wide">Cochería Paraíso de Paz</h1>
       <p className="text-[#B8956A] text-sm mt-1 italic">Hacemos más fácil, tus momentos difíciles</p>
     </div>
@@ -361,12 +363,14 @@ function Modal({
 function Loading() {
   return (
     <div className="min-h-screen bg-[#1B3A6B] flex flex-col items-center justify-center">
-      <img
-        src="/Paraiso_de_Paz.png"
-        alt="Paraíso de Paz"
-        className="w-20 h-20 object-contain mb-4"
-        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-      />
+      <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-2 border-[#B8956A]/40">
+        <img
+          src="/Paraiso_de_Paz.png"
+          alt="Paraíso de Paz"
+          className="w-full h-full object-cover"
+          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
+        />
+      </div>
       <p className="text-[#B8956A] text-sm">Cargando...</p>
     </div>
   )
