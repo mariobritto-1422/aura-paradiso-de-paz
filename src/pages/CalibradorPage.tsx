@@ -49,7 +49,7 @@ export default function CalibradorPage() {
         <span className="text-[#B8956A] font-semibold text-sm">Calibrador de coordenadas</span>
         <select
           value={selIdx}
-          onChange={e => { setSelIdx(Number(e.target.value)); setCoords(null) }}
+          onChange={e => { setSelIdx(Number(e.target.value)); setCoords(null); setHistory([]) }}
           className="bg-gray-700 text-white text-sm px-3 py-1.5 rounded-lg border border-gray-600"
         >
           {FORMULARIOS.map((f, i) => (
