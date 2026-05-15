@@ -52,6 +52,6 @@ function generarF1(pdf: jsPDF, s: ServicioConDeudo) {
 export const F1_INFO: FormularioInfo = {
   id: 'F1',
   nombre: 'Solicitud de Afiliación',
-  imagen: '/formularios/paz_1.jpeg',
+  imagen: '/formularios/paz_1.png',
   generarFn: generarF1,
 }

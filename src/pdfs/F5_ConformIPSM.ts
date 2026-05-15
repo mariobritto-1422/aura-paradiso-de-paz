@@ -62,6 +62,6 @@ function generarF5(pdf: jsPDF, s: ServicioConDeudo) {
 export const F5_INFO: FormularioInfo = {
   id: 'F5',
   nombre: 'Conformidad Afiliado IPSM',
-  imagen: '/formularios/paz_5.jpeg',
+  imagen: '/formularios/paz_5.png',
   generarFn: generarF5,
 }

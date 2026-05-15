@@ -64,6 +64,6 @@ function generarF2(pdf: jsPDF, s: ServicioConDeudo) {
 export const F2_INFO: FormularioInfo = {
   id: 'F2',
   nombre: 'Conformidad S&G (detalle)',
-  imagen: '/formularios/paz_2.jpeg',
+  imagen: '/formularios/paz_2.png',
   generarFn: generarF2,
 }

@@ -58,6 +58,6 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
 export const F6_INFO: FormularioInfo = {
   id: 'F6',
   nombre: 'Ficha Ingreso Cementerio La Piedad',
-  imagen: '/formularios/paz_6.jpeg',
+  imagen: '/formularios/paz_6.png',
   generarFn: generarF6,
 }

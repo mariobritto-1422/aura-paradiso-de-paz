@@ -89,6 +89,6 @@ function generarF4(pdf: jsPDF, s: ServicioConDeudo) {
 export const F4_INFO: FormularioInfo = {
   id: 'F4',
   nombre: 'Solicitud de Cremación + Autorización + DDJJ',
-  imagen: '/formularios/paz_4.jpeg',
+  imagen: '/formularios/paz_4.png',
   generarFn: generarF4,
 }

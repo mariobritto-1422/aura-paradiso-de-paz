@@ -63,6 +63,6 @@ function generarF3(pdf: jsPDF, s: ServicioConDeudo) {
 export const F3_INFO: FormularioInfo = {
   id: 'F3',
   nombre: 'Conformidad S&G Convenios Nacionales',
-  imagen: '/formularios/paz_3.jpeg',
+  imagen: '/formularios/paz_3.png',
   generarFn: generarF3,
 }

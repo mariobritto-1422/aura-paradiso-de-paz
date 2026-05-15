@@ -1,19 +1,18 @@
 import { useState, useRef } from 'react'
 
 const FORMULARIOS = [
-  { id: 'F1', label: 'F1 — Solicitud de Afiliación',     src: '/formularios/paz_1.jpeg' },
-  { id: 'F2', label: 'F2 — Conformidad S&G',              src: '/formularios/paz_2.jpeg' },
-  { id: 'F3', label: 'F3 — S&G Convenios Nacionales',     src: '/formularios/paz_3.jpeg' },
-  { id: 'F4', label: 'F4 — Solicitud de Cremación',       src: '/formularios/paz_4.jpeg' },
-  { id: 'F5', label: 'F5 — Conformidad IPSM',             src: '/formularios/paz_5.jpeg' },
-  { id: 'F6', label: 'F6 — Ficha Cementerio La Piedad',   src: '/formularios/paz_6.jpeg' },
-  { id: 'F7', label: 'F7 — Conformidad del Servicio',     src: '/formularios/paz_7.jpeg' },
+  { id: 'F1', label: 'F1 — Solicitud de Afiliación',     src: '/formularios/paz_1.png' },
+  { id: 'F2', label: 'F2 — Conformidad S&G',              src: '/formularios/paz_2.png' },
+  { id: 'F3', label: 'F3 — S&G Convenios Nacionales',     src: '/formularios/paz_3.png' },
+  { id: 'F4', label: 'F4 — Solicitud de Cremación',       src: '/formularios/paz_4.png' },
+  { id: 'F5', label: 'F5 — Conformidad IPSM',             src: '/formularios/paz_5.png' },
+  { id: 'F6', label: 'F6 — Ficha Cementerio La Piedad',   src: '/formularios/paz_6.png' },
 ]
 
 // A4 = 210mm × 297mm
 
 export default function CalibradorPage() {
-  const [selIdx, setSelIdx] = useState(6) // F7 por defecto
+  const [selIdx, setSelIdx] = useState(0)
   const [coords, setCoords] = useState<{ x: number; y: number } | null>(null)
   const [history, setHistory] = useState<Array<{ x: number; y: number; label: string }>>([])
   const imgRef = useRef<HTMLImageElement>(null)
