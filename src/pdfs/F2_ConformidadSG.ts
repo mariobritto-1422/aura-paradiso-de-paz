@@ -7,45 +7,63 @@ import { txt, checkbox } from './utils'
 // F2 — El cuerpo del formulario es texto fijo hasta la sección "INDICAR CON X"
 // Solo marcamos los campos interactivos en la parte inferior
 
+// ─── COORDENADAS (mm en A4 210×297) — calibrado 2026-05-15 ──────────────────
+
 const C = {
-  // "Velatorio: SI [x] NO [ ]"
-  cb_vel_si: { x: 38, y: 195 },
-  cb_vel_no: { x: 50, y: 195 },
-  // "Alquilado SI [ ] NO [ ]  Propio SI [x] NO [ ]"
-  cb_propio_si: { x: 65, y: 200 },
+  // Velatorio SI/NO
+  cb_vel_si:    { x: 59.6, y: 157.5 },
+  cb_vel_no:    { x: 84.1, y: 157.5 },
 
-  // "Autos de acompañamiento SI [x] NO [ ]  Marca y tipo:..."
-  cb_autos_si:  { x: 47, y: 208 },
-  cb_autos_no:  { x: 58, y: 208 },
-  autos_marca:  { x: 115, y: 208 },
-  autos_cant:   { x: 115, y: 213 },
+  // Alquilado SI/NO — Propio SI/NO
+  cb_alq_si:    { x: 59.4,  y: 161.8 },
+  cb_alq_no:    { x: 84.2,  y: 161.7 },
+  cb_prop_si:   { x: 118.8, y: 161.8 },
+  cb_prop_no:   { x: 135.4, y: 161.7 },
 
-  // "Inhumado en el Cementerio:..."
-  cementerio: { x: 55, y: 233 },
-  localidad:  { x: 28, y: 240 },
-  provincia:  { x: 115, y: 240 },
+  // Autos de acompañamiento SI/NO — Marca y tipo
+  cb_autos_si:  { x: 82,    y: 171.2 },
+  cb_autos_no:  { x: 98.6,  y: 171.2 },
+  autos_marca:  { x: 135.6, y: 170 },
+
+  // Portacoronas SI/NO — Cantidad SI/NO
+  cb_porta_si:  { x: 55.6,  y: 175.7 },
+  cb_porta_no:  { x: 72,    y: 175.7 },
+  cb_cant_si:   { x: 104.5, y: 175.7 },
+  cb_cant_no:   { x: 121.5, y: 175.5 },
+
+  // Cantidades / textos
+  cantidad:     { x: 48.6,  y: 180.7 },
+  funebre:      { x: 70.3,  y: 180.7 },
+  portacoronas: { x: 104.2, y: 180.6 },
+  otros_1:      { x: 172.3, y: 179.5 },
+  otros_2:      { x: 34.6,  y: 184 },
+
+  // Inhumado
+  cementerio:   { x: 80.4,  y: 193.4 },
+  localidad:    { x: 51.7,  y: 198.1 },
+  provincia:    { x: 139.8, y: 197.7 },
 
   // Tipo sepultura
-  cb_tierra:  { x: 15, y: 248 },
-  cb_nicho:   { x: 42, y: 248 },
-  cb_panteon: { x: 65, y: 248 },
-  cb_boveda:  { x: 95, y: 248 },
+  cb_tierra:    { x: 44.2,  y: 203.8 },
+  cb_nicho:     { x: 78.6,  y: 203.5 },
+  cb_panteon:   { x: 115.3, y: 203.3 },
+  cb_boveda:    { x: 148,   y: 202.9 },
 
-  // Otro beneficio
-  cb_otro_si: { x: 68, y: 255 },
-  cb_otro_no: { x: 80, y: 255 },
+  // Otro beneficio SI/NO — Indicar cuál
+  cb_otro_si:   { x: 89.1,  y: 212.3 },
+  cb_otro_no:   { x: 102.9, y: 212.3 },
+  otro_cual:    { x: 54.5,  y: 216.6 },
 }
 
 function generarF2(pdf: jsPDF, s: ServicioConDeudo) {
   const tieneVelatorio = !!s.sala
   checkbox(pdf, tieneVelatorio,  C.cb_vel_si.x, C.cb_vel_si.y)
   checkbox(pdf, !tieneVelatorio, C.cb_vel_no.x, C.cb_vel_no.y)
-  checkbox(pdf, true, C.cb_propio_si.x, C.cb_propio_si.y)
+  checkbox(pdf, true, C.cb_prop_si.x, C.cb_prop_si.y)
 
   checkbox(pdf, s.coche_escolta,  C.cb_autos_si.x, C.cb_autos_si.y)
   checkbox(pdf, !s.coche_escolta, C.cb_autos_no.x, C.cb_autos_no.y)
   if (s.vehiculo) txt(pdf, s.vehiculo, C.autos_marca.x, C.autos_marca.y)
-  if (s.coche_escolta) txt(pdf, String(s.coche_escolta_cantidad), C.autos_cant.x, C.autos_cant.y)
 
   txt(pdf, s.destino_final ?? '', C.cementerio.x, C.cementerio.y)
   txt(pdf, 'Posadas',  C.localidad.x, C.localidad.y)
