@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
-import { supabase, type DeudoFichado } from '../lib/supabase'
+import { supabase, type DeudoFichado, type Servicio } from '../lib/supabase'
 
 const FORM_URL = `${window.location.origin}/`
 
 export default function PanelPage() {
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<DeudoFichado[]>([])
+  const [servicios, setServicios] = useState<Servicio[]>([])
   const [loading, setLoading] = useState(true)
   const qrRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadSessions()
+    loadServicios()
 
     const channel = supabase
       .channel('deudos_realtime')
@@ -42,6 +44,15 @@ export default function PanelPage() {
       .limit(200)
     if (data) setSessions(data as DeudoFichado[])
     setLoading(false)
+  }
+
+  async function loadServicios() {
+    const { data } = await supabase
+      .from('servicios')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (data) setServicios(data as Servicio[])
   }
 
   function downloadQR() {
@@ -98,6 +109,58 @@ export default function PanelPage() {
           <Stat label="Activas" value={activos} bg="bg-emerald-500" />
           <Stat label="Completadas" value={completos} bg="bg-[#1B3A6B]" />
           <Stat label="Abandonadas" value={abandonados} bg="bg-gray-400" />
+        </div>
+
+        {/* Servicios recientes */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="font-semibold text-[#1B3A6B] text-sm">Servicios registrados</h2>
+            <button
+              onClick={() => navigate('/alta-servicio')}
+              className="text-xs bg-[#1B3A6B] text-white px-3 py-1.5 rounded-lg hover:bg-[#152e57]"
+            >
+              + Nuevo
+            </button>
+          </div>
+          {servicios.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Sin servicios registrados aún.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-400 text-xs bg-gray-50">
+                    <th className="px-4 py-3 font-medium">Orden</th>
+                    <th className="px-4 py-3 font-medium">Fallecido</th>
+                    <th className="px-4 py-3 font-medium">Tipo</th>
+                    <th className="px-4 py-3 font-medium">Destino</th>
+                    <th className="px-4 py-3 font-medium">Fecha</th>
+                    <th className="px-4 py-3 font-medium"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {servicios.map(s => (
+                    <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 font-bold text-[#1B3A6B]">#{s.numero_orden}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{s.fallecido_nombre}</td>
+                      <td className="px-4 py-3 text-gray-500">{s.tipo_servicio}</td>
+                      <td className="px-4 py-3 text-gray-500 max-w-[130px] truncate">{s.destino_final ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
+                        {new Date(s.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => navigate(`/servicio/${s.id}`)}
+                          className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-2.5 py-1 rounded-lg hover:bg-[#B8956A]/10 transition-colors"
+                        >
+                          Documentos
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
