@@ -153,7 +153,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-[#1B3A6B] text-white px-6 py-4 flex items-center gap-4">
         <div className="w-9 h-9 rounded-full overflow-hidden border border-[#B8956A]/40 flex-shrink-0">
-          <img src="/Paraiso_de_Paz.png" alt="" className="w-full h-full object-cover"
+          <img src="/PP_jpg.png" alt="" className="w-full h-full object-cover"
             onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
         </div>
         <div className="flex-1">

@@ -38,7 +38,7 @@ function SessionModal({ onSelect }: { onSelect: (u: SessionUser) => void }) {
       <div className="bg-white rounded-2xl p-7 w-full max-w-sm shadow-2xl">
         <div className="flex justify-center mb-4">
           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#B8956A]/40">
-            <img src="/Paraiso_de_Paz.png" alt="" className="w-full h-full object-cover"
+            <img src="/PP_jpg.png" alt="" className="w-full h-full object-cover"
               onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function PanelPage() {
       {/* Header */}
       <div className="bg-[#1B3A6B] text-white px-6 py-4 flex items-center gap-4">
         <div className="w-10 h-10 rounded-full overflow-hidden border border-[#B8956A]/40 flex-shrink-0">
-          <img src="/Paraiso_de_Paz.png" alt="" className="w-full h-full object-cover"
+          <img src="/PP_jpg.png" alt="" className="w-full h-full object-cover"
             onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
         </div>
         <div className="flex-1 min-w-0">

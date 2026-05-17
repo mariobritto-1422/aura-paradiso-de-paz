@@ -306,7 +306,7 @@ function Header() {
     <div className="bg-[#1B3A6B] text-white py-7 px-4 text-center">
       <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3 border-2 border-[#B8956A]/40">
         <img
-          src="/Paraiso_de_Paz.png"
+          src="/PP_jpg.png"
           alt="Paraíso de Paz"
           className="w-full h-full object-cover"
           onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
@@ -365,7 +365,7 @@ function Loading() {
     <div className="min-h-screen bg-[#1B3A6B] flex flex-col items-center justify-center">
       <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-2 border-[#B8956A]/40">
         <img
-          src="/Paraiso_de_Paz.png"
+          src="/PP_jpg.png"
           alt="Paraíso de Paz"
           className="w-full h-full object-cover"
           onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
