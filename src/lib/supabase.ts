@@ -45,11 +45,26 @@ export type Servicio = {
   fallecido_profesion: string | null
   fallecido_obra_social: string | null
   fallecido_beneficio_nro: string | null
+  fallecido_talla: string | null
+  fallecido_peso_kg: number | null
+  fallecido_causa_fallecimiento: string | null
   tipo_servicio: string
+  ataud_tipo: string | null
+  ataud_medida: number | null
+  ataud_ancho: string | null
   sala: string | null
+  sala_domicilio: string | null
+  capilla_ardiente: string | null
+  tipo_entierro: string | null
+  preparador: string | null
   vehiculo: string | null
   coche_escolta: boolean
   coche_escolta_cantidad: number
+  furgon_sanitario: boolean
+  coche_funebre: boolean
+  coche_porta_corona: boolean
+  coche_acompanamiento: boolean
+  refrigerador: boolean
   tanatostetica: boolean
   tanatopraxia: boolean
   destino_final: string | null
@@ -58,6 +73,13 @@ export type Servicio = {
   documentacion: DocumentacionRecibida | null
   asesor: string | null
   estado: string
+}
+
+export type Usuario = {
+  id: string
+  nombre: string
+  rol: 'Administrador' | 'Operador'
+  created_at: string
 }
 
 export type ServicioConDeudo = Servicio & {

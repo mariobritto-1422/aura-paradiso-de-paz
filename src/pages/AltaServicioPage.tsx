@@ -3,10 +3,50 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, type DeudoFichado } from '../lib/supabase'
 import { DeudoBuscador } from '../components/DeudoBuscador'
 import { StockSelector } from '../components/StockSelector'
+import { ComboSelect } from '../components/ComboSelect'
 
-const IC = // Input Class
+const IC =
   'w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 bg-white ' +
   'focus:outline-none focus:border-[#1B3A6B] focus:ring-1 focus:ring-[#1B3A6B] transition-colors text-sm'
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+const LUGARES_DECESO = [
+  'Sanatorio Boratti', 'Sanatorio Buenos Aires', 'Sanatorio Nosiglia',
+  'Sanatorio Posadas', 'Sanatorio Caminos', 'Sanatorio IOT',
+  'Hospital Ramón Madariaga', 'Hospital Favaloro', 'Clínica AMA',
+  'Centro Médico Integral Alem', 'Casa de los Abuelos Candelaria',
+  'Caps', 'Accidente de tránsito', 'Domicilio particular', 'Calle',
+]
+
+const TIPOS_ATAUD = [
+  'PROTOTIPO (plano)', 'PROTOTIPO (baúl barniz)', 'PROTOTIPO (baúl l. lust)',
+  'PROTOTIPO (baulito)', 'PROTOTIPO (baulito 3 paneles)', 'PROTOTIPO (jaspeado)',
+  'PROTOTIPO (plano s.)', 'PROTOTIPO (barnizado)', 'PROTOTIPO (bau. lis.)',
+  'PROTOTIPO (baúl)', 'PROTOTIPO (bau. 3 paneles)', 'PROTOTIPO (baulito jaspeado)',
+  'PROTOTIPO (medida especial)', 'PROTOTIPO (baúl manija fija)', 'PROTOTIPO (baúl 2 paneles)',
+  'PROTOTIPO (super medida)', 'PROTOTIPO (social)', 'ATAUD SOCIAL DREWNA',
+  'ATAUD SOC. MEJ. DREWNA', 'ATAUD LISO FINO DREWNA',
+]
+
+const SALAS = ['A (Sala Fénix)', 'B (Sala Portal)', 'Garupa', 'Domicilio']
+
+const CAPILLAS = ['Ninguna', 'Capilla VIP', 'Capilla Económica', 'Capilla Estándar']
+
+const TIPOS_ENTIERRO = ['Tierra', 'Nicho', 'Cremación']
+
+const STAFF = [
+  'Aplicaciones Alemanas', 'Carlos Venialgo', 'Cristiano Maidana',
+  'Daniel Alegre', 'Jorfe Zariaga', 'Jorge Amarillo',
+  'Lorena Salguero', 'Noelia Bolaño', 'Soledad Alegre', 'Ulises Velázquez',
+]
+
+const DESTINOS = [
+  'La Piedad', 'Garupa', 'Paraguay', 'Parque Privado El Portal',
+  'Cementerio San Antonio', 'San José', 'Campo Viera', 'Santo Pipó',
+  'Candelaria', 'Leandro N. Alem', 'San Vicente', 'El Soberbio',
+  'Gobernador Roca', 'San Antonio', 'Alvear (Corrientes)', 'Posadas (otros cementerios)',
+]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,8 +57,15 @@ type ServicioForm = {
   fallecido_estado_civil: string; fallecido_religion: string
   fallecido_profesion: string; fallecido_obra_social: string
   fallecido_beneficio_nro: string
-  tipo_servicio: string; sala: string; vehiculo: string
-  coche_escolta: boolean; coche_escolta_cantidad: number
+  fallecido_talla: string; fallecido_peso_kg: string
+  fallecido_causa_fallecimiento: string
+  tipo_servicio: string
+  ataud_tipo: string; ataud_medida: string; ataud_ancho: string
+  sala: string; sala_domicilio: string
+  capilla_ardiente: string; tipo_entierro: string
+  preparador: string
+  furgon_sanitario: boolean; coche_funebre: boolean
+  coche_porta_corona: boolean; coche_acompanamiento: boolean; refrigerador: boolean
   tanatostetica: boolean; tanatopraxia: boolean
   destino_final: string; fecha_servicio: string
   ataud_urna_id: string
@@ -29,7 +76,8 @@ type ServicioForm = {
   doc_cenizas_orig: boolean; doc_cenizas_cop: boolean
   doc_carnet_orig: boolean; doc_carnet_cop: boolean
   doc_otros: string
-  deudo_id: string; asesor: string
+  deudo_id: string
+  asesor: string; asesor_custom: string
 }
 
 const EMPTY: ServicioForm = {
@@ -39,8 +87,14 @@ const EMPTY: ServicioForm = {
   fallecido_estado_civil: '', fallecido_religion: '',
   fallecido_profesion: '', fallecido_obra_social: '',
   fallecido_beneficio_nro: '',
-  tipo_servicio: '', sala: '', vehiculo: '',
-  coche_escolta: false, coche_escolta_cantidad: 1,
+  fallecido_talla: '', fallecido_peso_kg: '', fallecido_causa_fallecimiento: '',
+  tipo_servicio: '',
+  ataud_tipo: '', ataud_medida: '', ataud_ancho: '',
+  sala: '', sala_domicilio: '',
+  capilla_ardiente: '', tipo_entierro: '',
+  preparador: '',
+  furgon_sanitario: false, coche_funebre: false,
+  coche_porta_corona: false, coche_acompanamiento: false, refrigerador: false,
   tanatostetica: false, tanatopraxia: false,
   destino_final: '', fecha_servicio: '',
   ataud_urna_id: '',
@@ -50,10 +104,11 @@ const EMPTY: ServicioForm = {
   doc_factura_orig: false, doc_factura_cop: false,
   doc_cenizas_orig: false, doc_cenizas_cop: false,
   doc_carnet_orig: false, doc_carnet_cop: false,
-  doc_otros: '', deudo_id: '', asesor: '',
+  doc_otros: '', deudo_id: '',
+  asesor: '', asesor_custom: '',
 }
 
-// ─── Docs helper ─────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getRequiredDocs(tipo: string, obraSocial: string, destino: string): string[] {
   const docs: string[] = ['Compromiso de Pago']
@@ -102,14 +157,28 @@ function Section({ title, badge, isOpen, onToggle, children }: {
   )
 }
 
-function Field({ label, children, half }: { label: string; children: React.ReactNode; half?: boolean }) {
+function Field({ label, children, required }: {
+  label: string; children: React.ReactNode; required?: boolean
+}) {
   return (
-    <div className={half ? '' : ''}>
+    <div>
       <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
-        {label}
+        {label}{required && <span className="text-red-400 ml-0.5">*</span>}
       </label>
       {children}
     </div>
+  )
+}
+
+function CheckItem({ label, checked, onChange }: {
+  label: string; checked: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)}
+        className="w-4 h-4 accent-[#1B3A6B] flex-shrink-0" />
+      <span className="text-sm text-gray-700">{label}</span>
+    </label>
   )
 }
 
@@ -157,8 +226,7 @@ function FicharModal({ onClose, onSuccess }: {
     setSaving(true)
     const payload = { ...f, whatsapp: sameTel ? f.telefono : f.whatsapp,
       session_token: crypto.randomUUID(), estado: 'completo' }
-    const { data, error } = await supabase
-      .from('deudos_fichados').insert(payload).select().single()
+    const { data, error } = await supabase.from('deudos_fichados').insert(payload).select().single()
     setSaving(false)
     if (!error && data) onSuccess(data as DeudoFichado)
   }
@@ -197,9 +265,7 @@ function FicharModal({ onClose, onSuccess }: {
             <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">Relación</label>
             <select name="relacion_fallecido" value={f.relacion_fallecido} onChange={ch} required className={IC}>
               <option value="">Seleccionar...</option>
-              {['Cónyuge', 'Hijo/a', 'Hermano/a', 'Padre/Madre', 'Otro'].map(o => (
-                <option key={o}>{o}</option>
-              ))}
+              {['Cónyuge', 'Hijo/a', 'Hermano/a', 'Padre/Madre', 'Otro'].map(o => <option key={o}>{o}</option>)}
             </select>
           </div>
           <div>
@@ -225,6 +291,59 @@ function FicharModal({ onClose, onSuccess }: {
   )
 }
 
+function ConfirmModal({ form, onCancel, onConfirm, saving }: {
+  form: ServicioForm
+  onCancel: () => void
+  onConfirm: () => void
+  saving: boolean
+}) {
+  const asesorDisplay = form.asesor === 'Otro' ? form.asesor_custom : form.asesor
+  const salaDisplay = form.sala === 'Domicilio'
+    ? `Domicilio — ${form.sala_domicilio || '(sin dirección)'}`
+    : form.sala || '—'
+  const rows: [string, string][] = [
+    ['Fallecido', form.fallecido_nombre || '—'],
+    ['DNI', form.fallecido_dni || '—'],
+    ['Fecha de deceso', form.fallecido_fecha_deceso
+      ? new Date(form.fallecido_fecha_deceso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : '—'],
+    ['Causa', form.fallecido_causa_fallecimiento || '—'],
+    ['Tipo de servicio', form.tipo_servicio || '—'],
+    ['Sala', salaDisplay],
+    ['Tipo de ataúd', form.ataud_tipo || '—'],
+    ['Tipo de entierro', form.tipo_entierro || '—'],
+    ['Destino final', form.destino_final || '—'],
+    ['Preparador', form.preparador || '—'],
+    ['Asesor', asesorDisplay || '—'],
+  ]
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl my-4">
+        <h3 className="font-semibold text-[#1B3A6B] mb-1">Confirmar servicio</h3>
+        <p className="text-xs text-gray-400 mb-5">Verificá los datos antes de guardar.</p>
+        <div className="divide-y divide-gray-50 mb-6">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex justify-between items-baseline py-2">
+              <span className="text-xs text-gray-400 uppercase tracking-wide w-36 flex-shrink-0">{label}</span>
+              <span className="text-sm text-gray-800 text-right font-medium">{value}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button type="button" onClick={onCancel} disabled={saving}
+            className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm disabled:opacity-60">
+            Corregir
+          </button>
+          <button type="button" onClick={onConfirm} disabled={saving}
+            className="flex-1 py-3 rounded-xl bg-[#1B3A6B] text-white text-sm font-semibold disabled:opacity-60">
+            {saving ? 'Guardando...' : 'Confirmar y guardar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SuccessScreen({ orden, docs, onNuevo, onPanel }: {
   orden: number; docs: string[]; onNuevo: () => void; onPanel: () => void
 }) {
@@ -241,7 +360,6 @@ function SuccessScreen({ orden, docs, onNuevo, onPanel }: {
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Servicio registrado</p>
           <h2 className="text-3xl font-bold text-[#1B3A6B]">Orden N° {orden}</h2>
         </div>
-
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100">
             <h3 className="font-semibold text-[#1B3A6B] text-sm">Documentos a preparar</h3>
@@ -255,7 +373,6 @@ function SuccessScreen({ orden, docs, onNuevo, onPanel }: {
             ))}
           </ul>
         </div>
-
         <div className="flex gap-3">
           <button onClick={onPanel}
             className="flex-1 py-3.5 rounded-xl border border-[#1B3A6B] text-[#1B3A6B] text-sm font-medium">
@@ -291,7 +408,7 @@ function PanelHeader() {
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function AltaServicioPage() {
   const navigate = useNavigate()
@@ -299,12 +416,11 @@ export default function AltaServicioPage() {
   const [selectedDeudo, setSelectedDeudo] = useState<DeudoFichado | null>(null)
   const [saving, setSaving] = useState(false)
   const [showFichar, setShowFichar] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [screen, setScreen] = useState<'form' | 'success'>('form')
   const [savedOrden, setSavedOrden] = useState(0)
   const [requiredDocs, setRequiredDocs] = useState<string[]>([])
-  const [open, setOpen] = useState({
-    s1: true, s2: true, s3: true, s4: false, s5: true, s6: true,
-  })
+  const [open, setOpen] = useState({ s1: true, s2: true, s3: true, s4: false, s5: true, s6: true })
 
   function toggle(s: keyof typeof open) {
     setOpen(prev => ({ ...prev, [s]: !prev[s] }))
@@ -339,35 +455,53 @@ export default function AltaServicioPage() {
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
+    setShowConfirm(true)
+  }
 
+  async function handleConfirm() {
+    setSaving(true)
+    const asesorFinal = form.asesor === 'Otro' ? form.asesor_custom : form.asesor
     const payload = {
       deudo_id: form.deudo_id || null,
       fallecido_nombre: form.fallecido_nombre,
-      fallecido_dni: form.fallecido_dni,
+      fallecido_dni: form.fallecido_dni || null,
       fallecido_fecha_nacimiento: form.fallecido_fecha_nacimiento || null,
       fallecido_fecha_deceso: form.fallecido_fecha_deceso || null,
-      fallecido_lugar_deceso: form.fallecido_lugar_deceso,
-      fallecido_nacionalidad: form.fallecido_nacionalidad,
-      fallecido_estado_civil: form.fallecido_estado_civil,
-      fallecido_religion: form.fallecido_religion,
-      fallecido_profesion: form.fallecido_profesion,
-      fallecido_obra_social: form.fallecido_obra_social,
-      fallecido_beneficio_nro: form.fallecido_beneficio_nro,
+      fallecido_lugar_deceso: form.fallecido_lugar_deceso || null,
+      fallecido_nacionalidad: form.fallecido_nacionalidad || null,
+      fallecido_estado_civil: form.fallecido_estado_civil || null,
+      fallecido_religion: form.fallecido_religion || null,
+      fallecido_profesion: form.fallecido_profesion || null,
+      fallecido_obra_social: form.fallecido_obra_social || null,
+      fallecido_beneficio_nro: form.fallecido_beneficio_nro || null,
+      fallecido_talla: form.fallecido_talla || null,
+      fallecido_peso_kg: form.fallecido_peso_kg ? parseFloat(form.fallecido_peso_kg) : null,
+      fallecido_causa_fallecimiento: form.fallecido_causa_fallecimiento || null,
       tipo_servicio: form.tipo_servicio,
-      sala: form.sala,
-      vehiculo: form.vehiculo,
-      coche_escolta: form.coche_escolta,
-      coche_escolta_cantidad: form.coche_escolta ? form.coche_escolta_cantidad : 0,
+      ataud_tipo: form.ataud_tipo || null,
+      ataud_medida: form.ataud_medida ? parseInt(form.ataud_medida) : null,
+      ataud_ancho: form.ataud_ancho || null,
+      sala: form.sala || null,
+      sala_domicilio: form.sala === 'Domicilio' ? form.sala_domicilio || null : null,
+      capilla_ardiente: form.capilla_ardiente || null,
+      tipo_entierro: form.tipo_entierro || null,
+      preparador: form.preparador || null,
+      furgon_sanitario: form.furgon_sanitario,
+      coche_funebre: form.coche_funebre,
+      coche_porta_corona: form.coche_porta_corona,
+      coche_acompanamiento: form.coche_acompanamiento,
+      refrigerador: form.refrigerador,
+      coche_escolta: false,
+      coche_escolta_cantidad: 0,
       tanatostetica: form.tanatostetica,
       tanatopraxia: form.tanatopraxia,
-      destino_final: form.destino_final,
+      destino_final: form.destino_final || null,
       fecha_servicio: form.fecha_servicio || null,
       ataud_urna_id: form.ataud_urna_id || null,
       documentacion: buildDocumentacion(),
-      asesor: form.asesor,
+      asesor: asesorFinal || null,
       estado: 'activo',
     }
 
@@ -379,6 +513,7 @@ export default function AltaServicioPage() {
 
     if (error || !data) {
       setSaving(false)
+      setShowConfirm(false)
       alert('Error al guardar. Por favor reintente.')
       return
     }
@@ -391,6 +526,7 @@ export default function AltaServicioPage() {
     setRequiredDocs(docs)
     setSavedOrden((data as { numero_orden: number }).numero_orden)
     setSaving(false)
+    setShowConfirm(false)
     setScreen('success')
   }
 
@@ -425,11 +561,11 @@ export default function AltaServicioPage() {
       <div className="max-w-3xl mx-auto px-4 py-6">
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* S1 — Fallecido */}
+          {/* S1 — Datos del fallecido */}
           <Section badge="1" title="Datos del fallecido" isOpen={open.s1} onToggle={() => toggle('s1')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
-                <Field label="Apellido y Nombre">
+                <Field label="Apellido y Nombre" required>
                   <input type="text" value={form.fallecido_nombre} required
                     onChange={e => set('fallecido_nombre', e.target.value)}
                     className={IC} placeholder="Apellido, Nombre completo" />
@@ -457,9 +593,32 @@ export default function AltaServicioPage() {
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Lugar de deceso">
-                  <input type="text" value={form.fallecido_lugar_deceso}
-                    onChange={e => set('fallecido_lugar_deceso', e.target.value)}
-                    className={IC} placeholder="Hospital, domicilio, localidad..." />
+                  <ComboSelect
+                    options={LUGARES_DECESO}
+                    value={form.fallecido_lugar_deceso}
+                    onChange={v => set('fallecido_lugar_deceso', v)}
+                    placeholder="Buscar sanatorio, hospital o ingresar..."
+                  />
+                </Field>
+              </div>
+              <Field label="Talla">
+                <select value={form.fallecido_talla}
+                  onChange={e => set('fallecido_talla', e.target.value)} className={IC}>
+                  <option value="">Seleccionar...</option>
+                  <option>Normal</option>
+                  <option>Especial</option>
+                </select>
+              </Field>
+              <Field label="Peso Kg aproximado">
+                <input type="number" min={0} step={0.5} value={form.fallecido_peso_kg}
+                  onChange={e => set('fallecido_peso_kg', e.target.value)}
+                  className={IC} placeholder="Ej: 75" />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Causa de fallecimiento">
+                  <input type="text" value={form.fallecido_causa_fallecimiento}
+                    onChange={e => set('fallecido_causa_fallecimiento', e.target.value)}
+                    className={IC} placeholder="Descripción de la causa..." />
                 </Field>
               </div>
               <Field label="Estado civil">
@@ -494,33 +653,74 @@ export default function AltaServicioPage() {
             </div>
           </Section>
 
-          {/* S2 — Servicio */}
-          <Section badge="2" title="Detalle del servicio" isOpen={open.s2} onToggle={() => toggle('s2')}>
+          {/* S2 — Características del servicio */}
+          <Section badge="2" title="Características del servicio" isOpen={open.s2} onToggle={() => toggle('s2')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Tipo de servicio">
+              <Field label="Tipo de servicio" required>
                 <select value={form.tipo_servicio} required
                   onChange={e => set('tipo_servicio', e.target.value)} className={IC}>
                   <option value="">Seleccionar...</option>
                   {['Sepelio', 'Cremación', 'Traslado'].map(o => <option key={o}>{o}</option>)}
                 </select>
               </Field>
+              <Field label="Capilla ardiente">
+                <select value={form.capilla_ardiente}
+                  onChange={e => set('capilla_ardiente', e.target.value)} className={IC}>
+                  <option value="">Seleccionar...</option>
+                  {CAPILLAS.map(o => <option key={o}>{o}</option>)}
+                </select>
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Tipo de ataúd">
+                  <ComboSelect
+                    options={TIPOS_ATAUD}
+                    value={form.ataud_tipo}
+                    onChange={v => set('ataud_tipo', v)}
+                    placeholder="Buscar modelo o ingresar..."
+                  />
+                </Field>
+              </div>
+              <Field label="Medida">
+                <input type="number" min={1} value={form.ataud_medida}
+                  onChange={e => set('ataud_medida', e.target.value)}
+                  className={IC} placeholder="Ej: 15, 16, 17..." />
+              </Field>
+              <Field label="Ancho">
+                <select value={form.ataud_ancho}
+                  onChange={e => set('ataud_ancho', e.target.value)} className={IC}>
+                  <option value="">Seleccionar...</option>
+                  <option>Estándar</option>
+                  <option>SuperMedida</option>
+                </select>
+              </Field>
               <Field label="Sala asignada">
-                <select value={form.sala} onChange={e => set('sala', e.target.value)} className={IC}>
+                <select value={form.sala}
+                  onChange={e => set('sala', e.target.value)} className={IC}>
                   <option value="">Seleccionar...</option>
-                  {['Fénix', 'El Paraíso', 'Descanso Eterno', 'Portal'].map(o => <option key={o}>{o}</option>)}
+                  {SALAS.map(o => <option key={o}>{o}</option>)}
                 </select>
               </Field>
-              <Field label="Vehículo">
-                <select value={form.vehiculo} onChange={e => set('vehiculo', e.target.value)} className={IC}>
+              {form.sala === 'Domicilio' && (
+                <Field label="Dirección del domicilio">
+                  <input type="text" value={form.sala_domicilio}
+                    onChange={e => set('sala_domicilio', e.target.value)}
+                    className={IC} placeholder="Calle, número, localidad..." />
+                </Field>
+              )}
+              <Field label="Tipo de entierro">
+                <select value={form.tipo_entierro}
+                  onChange={e => set('tipo_entierro', e.target.value)} className={IC}>
                   <option value="">Seleccionar...</option>
-                  {['Carroza Americana', 'Carroza Europea', 'Ambulancia'].map(o => <option key={o}>{o}</option>)}
+                  {TIPOS_ENTIERRO.map(o => <option key={o}>{o}</option>)}
                 </select>
               </Field>
-              <Field label="Destino final">
-                <select value={form.destino_final} onChange={e => set('destino_final', e.target.value)} className={IC}>
-                  <option value="">Seleccionar...</option>
-                  {['Cementerio La Piedad', 'Crematorios Misiones SRL', 'Traslado', 'Otro'].map(o => <option key={o}>{o}</option>)}
-                </select>
+              <Field label="Preparador">
+                <ComboSelect
+                  options={STAFF}
+                  value={form.preparador}
+                  onChange={v => set('preparador', v)}
+                  placeholder="Buscar o ingresar..."
+                />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Fecha y hora del servicio">
@@ -528,50 +728,44 @@ export default function AltaServicioPage() {
                     onChange={e => set('fecha_servicio', e.target.value)} className={IC} />
                 </Field>
               </div>
+              <div className="sm:col-span-2">
+                <Field label="Destino final">
+                  <ComboSelect
+                    options={DESTINOS}
+                    value={form.destino_final}
+                    onChange={v => set('destino_final', v)}
+                    placeholder="Buscar localidad o ingresar..."
+                  />
+                </Field>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                <input type="checkbox" checked={form.coche_escolta}
-                  onChange={e => set('coche_escolta', e.target.checked)}
-                  className="w-4 h-4 accent-[#1B3A6B]" />
-                <span className="text-sm text-gray-700">Coche escolta</span>
-              </label>
-              {form.coche_escolta && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
-                    Cantidad
-                  </label>
-                  <select value={form.coche_escolta_cantidad}
-                    onChange={e => set('coche_escolta_cantidad', Number(e.target.value))} className={IC}>
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                  </select>
-                </div>
-              )}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Vehículos / Recursos</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <CheckItem label="Furgón Sanitario" checked={form.furgon_sanitario} onChange={v => set('furgon_sanitario', v)} />
+                <CheckItem label="Coche Fúnebre" checked={form.coche_funebre} onChange={v => set('coche_funebre', v)} />
+                <CheckItem label="Coche Porta Corona" checked={form.coche_porta_corona} onChange={v => set('coche_porta_corona', v)} />
+                <CheckItem label="Coche de Acompañamiento" checked={form.coche_acompanamiento} onChange={v => set('coche_acompanamiento', v)} />
+                <CheckItem label="Refrigerador" checked={form.refrigerador} onChange={v => set('refrigerador', v)} />
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              {[
-                { label: 'Tanatoestética', field: 'tanatostetica' as keyof ServicioForm, val: form.tanatostetica },
-                { label: 'Tanatopraxia', field: 'tanatopraxia' as keyof ServicioForm, val: form.tanatopraxia },
-              ].map(({ label, field, val }) => (
-                <label key={field} className="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                  <input type="checkbox" checked={val as boolean}
-                    onChange={e => set(field, e.target.checked)}
-                    className="w-4 h-4 accent-[#1B3A6B]" />
-                  <span className="text-sm text-gray-700">{label}</span>
-                </label>
-              ))}
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Servicios adicionales</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <CheckItem label="Tanatoestética" checked={form.tanatostetica} onChange={v => set('tanatostetica', v)} />
+                <CheckItem label="Tanatopraxia" checked={form.tanatopraxia} onChange={v => set('tanatopraxia', v)} />
+              </div>
             </div>
           </Section>
 
-          {/* S3 — Ataúd / Urna */}
+          {/* S3 — Ataúd / Urna (stock físico) */}
           {stockTipo && (
-            <Section badge="3" title={stockTipo === 'ataud' ? 'Ataúd' : 'Urna'}
+            <Section badge="3" title={stockTipo === 'ataud' ? 'Ataúd — Stock físico' : 'Urna — Stock físico'}
               isOpen={open.s3} onToggle={() => toggle('s3')}>
               <p className="text-xs text-gray-500 mb-2">
-                Seleccione del stock disponible. Al guardar, el ítem se marcará como no disponible.
+                Asignar ítem del inventario físico. Al guardar, se marca como no disponible.
               </p>
               <StockSelector
                 tipo={stockTipo}
@@ -583,7 +777,7 @@ export default function AltaServicioPage() {
 
           {/* S4 — Documentación */}
           <Section badge="4" title="Documentación recibida" isOpen={open.s4} onToggle={() => toggle('s4')}>
-            <div className="text-xs text-gray-400 grid grid-cols-2 gap-x-6 mb-1 pr-1" style={{ paddingLeft: '0' }}>
+            <div className="text-xs text-gray-400 grid grid-cols-2 gap-x-6 mb-1">
               <span />
               <div className="flex gap-6 justify-end">
                 <span className="w-14 text-center">Original</span>
@@ -624,18 +818,30 @@ export default function AltaServicioPage() {
 
           {/* S6 — Asesor */}
           <Section badge="6" title="Asesor" isOpen={open.s6} onToggle={() => toggle('s6')}>
-            <Field label="Nombre del asesor que tomó el servicio">
-              <input type="text" value={form.asesor} required
-                onChange={e => set('asesor', e.target.value)}
-                className={IC} placeholder="Nombre completo del asesor" />
+            <Field label="Asesor que tomó el servicio" required>
+              <select value={form.asesor} required
+                onChange={e => set('asesor', e.target.value)} className={IC}>
+                <option value="">Seleccionar...</option>
+                {STAFF.map(n => <option key={n}>{n}</option>)}
+                <option value="Otro">Otro</option>
+              </select>
             </Field>
+            {form.asesor === 'Otro' && (
+              <div className="mt-3">
+                <Field label="Nombre del asesor">
+                  <input type="text" value={form.asesor_custom} required
+                    onChange={e => set('asesor_custom', e.target.value)}
+                    className={IC} placeholder="Nombre completo" />
+                </Field>
+              </div>
+            )}
           </Section>
 
           {/* Submit */}
           <div className="pt-2 pb-8">
-            <button type="submit" disabled={saving}
-              className="w-full bg-[#1B3A6B] text-white py-4 rounded-xl text-base font-semibold disabled:opacity-60 hover:bg-[#152e57] transition-colors">
-              {saving ? 'Guardando servicio...' : 'Guardar y generar formularios'}
+            <button type="submit"
+              className="w-full bg-[#1B3A6B] text-white py-4 rounded-xl text-base font-semibold hover:bg-[#152e57] transition-colors">
+              Revisar y guardar
             </button>
           </div>
         </form>
@@ -645,6 +851,15 @@ export default function AltaServicioPage() {
         <FicharModal
           onClose={() => setShowFichar(false)}
           onSuccess={d => { handleDeudoSelect(d); setShowFichar(false) }}
+        />
+      )}
+
+      {showConfirm && (
+        <ConfirmModal
+          form={form}
+          onCancel={() => setShowConfirm(false)}
+          onConfirm={handleConfirm}
+          saving={saving}
         />
       )}
     </div>
