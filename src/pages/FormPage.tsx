@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { DateInput } from '../components/DateInput'
 
 const TIMEOUT_MS = 10 * 60 * 1000
 const WARN_MS = 8 * 60 * 1000
@@ -41,6 +42,7 @@ export default function FormPage() {
   const [saving, setSaving] = useState(false)
   const [dupModal, setDupModal] = useState(false)
   const [warnVisible, setWarnVisible] = useState(false)
+  const [dateErr, setDateErr] = useState({ sol: '', gar: '' })
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
   const warnRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -95,6 +97,12 @@ export default function FormPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    const errs = { sol: '', gar: '' }
+    if (!sol.fecha_nacimiento) errs.sol = 'Ingresá una fecha válida en formato DD/MM/AAAA'
+    if (!gar.fecha_nacimiento) errs.gar = 'Ingresá una fecha válida en formato DD/MM/AAAA'
+    if (errs.sol || errs.gar) { setDateErr(errs); return }
+
     setSaving(true)
 
     const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
@@ -206,9 +214,12 @@ export default function FormPage() {
                   <input type="text" inputMode="numeric" name="dni" value={sol.dni} onChange={chSol}
                     required className={IC} placeholder="Sin puntos" autoComplete="off" />
                 </Field>
-                <Field label="Fecha de nacimiento">
-                  <input type="date" name="fecha_nacimiento" value={sol.fecha_nacimiento} onChange={chSol}
-                    required className={IC} />
+                <Field label="Fecha de nacimiento" required>
+                  <DateInput
+                    value={sol.fecha_nacimiento}
+                    onChange={iso => { setSol(p => ({ ...p, fecha_nacimiento: iso })); setDateErr(e => ({ ...e, sol: '' })) }}
+                    error={dateErr.sol}
+                  />
                 </Field>
               </div>
               <Field label="Celular">
@@ -275,9 +286,12 @@ export default function FormPage() {
                   <input type="text" inputMode="numeric" name="dni" value={gar.dni} onChange={chGar}
                     required className={IC} placeholder="Sin puntos" autoComplete="off" />
                 </Field>
-                <Field label="Fecha de nacimiento">
-                  <input type="date" name="fecha_nacimiento" value={gar.fecha_nacimiento} onChange={chGar}
-                    required className={IC} />
+                <Field label="Fecha de nacimiento" required>
+                  <DateInput
+                    value={gar.fecha_nacimiento}
+                    onChange={iso => { setGar(p => ({ ...p, fecha_nacimiento: iso })); setDateErr(e => ({ ...e, gar: '' })) }}
+                    error={dateErr.gar}
+                  />
                 </Field>
               </div>
               <Field label="Celular">

@@ -4,6 +4,8 @@ import { supabase, type DeudoFichado, type CatalogoItem } from '../lib/supabase'
 import { DeudoBuscador } from '../components/DeudoBuscador'
 import { StockSelector } from '../components/StockSelector'
 import { ComboSelect } from '../components/ComboSelect'
+import { DateInput } from '../components/DateInput'
+import { DateTimeInput } from '../components/DateTimeInput'
 
 const IC =
   'w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 bg-white ' +
@@ -596,12 +598,16 @@ export default function AltaServicioPage() {
                   className={IC} placeholder="Ej: Argentina" />
               </Field>
               <Field label="Fecha de nacimiento">
-                <input type="date" value={form.fallecido_fecha_nacimiento}
-                  onChange={e => set('fallecido_fecha_nacimiento', e.target.value)} className={IC} />
+                <DateInput
+                  value={form.fallecido_fecha_nacimiento}
+                  onChange={iso => set('fallecido_fecha_nacimiento', iso)}
+                />
               </Field>
               <Field label="Fecha y hora de deceso">
-                <input type="datetime-local" value={form.fallecido_fecha_deceso}
-                  onChange={e => set('fallecido_fecha_deceso', e.target.value)} className={IC} />
+                <DateTimeInput
+                  value={form.fallecido_fecha_deceso}
+                  onChange={iso => set('fallecido_fecha_deceso', iso)}
+                />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Lugar de deceso">
@@ -710,8 +716,10 @@ export default function AltaServicioPage() {
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Fecha y hora del servicio">
-                  <input type="datetime-local" value={form.fecha_servicio}
-                    onChange={e => set('fecha_servicio', e.target.value)} className={IC} />
+                  <DateTimeInput
+                    value={form.fecha_servicio}
+                    onChange={iso => set('fecha_servicio', iso)}
+                  />
                 </Field>
               </div>
               <div className="sm:col-span-2">
