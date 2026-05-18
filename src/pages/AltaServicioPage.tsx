@@ -71,6 +71,7 @@ type ServicioForm = {
   doc_otros: string
   deudo_id: string; garante_id: string
   asesor: string; asesor_custom: string
+  importe_servicio: string
 }
 
 const EMPTY: ServicioForm = {
@@ -99,6 +100,7 @@ const EMPTY: ServicioForm = {
   doc_carnet_orig: false, doc_carnet_cop: false,
   doc_otros: '', deudo_id: '', garante_id: '',
   asesor: '', asesor_custom: '',
+  importe_servicio: '',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -410,6 +412,7 @@ export default function AltaServicioPage() {
   const [open, setOpen] = useState({ s1: true, s2: true, s3: false, s4: true, s5: true })
   const [preparadores, setPreparadores] = useState<string[]>([])
   const [destinos, setDestinos] = useState<string[]>([])
+  const [asesores, setAsesores] = useState<{ nombre: string; whatsapp: string | null }[]>([])
 
   useEffect(() => {
     supabase.from('catalogos_preparador').select('nombre').eq('activo', true).order('nombre')
@@ -419,6 +422,13 @@ export default function AltaServicioPage() {
     supabase.from('catalogos_destino').select('nombre').eq('activo', true).order('nombre')
       .then(({ data }) => {
         setDestinos(data && data.length > 0 ? data.map((r: { nombre: string }) => r.nombre) : DESTINOS_BASE)
+      })
+    supabase.from('catalogos_asesor').select('nombre,whatsapp').eq('activo', true).order('nombre')
+      .then(({ data }) => {
+        if (data && data.length > 0)
+          setAsesores(data as { nombre: string; whatsapp: string | null }[])
+        else
+          setAsesores(STAFF.map(n => ({ nombre: n, whatsapp: null })))
       })
   }, [])
 
@@ -518,6 +528,7 @@ export default function AltaServicioPage() {
       documentacion:               buildDocumentacion(),
       asesor:                      asesorFinal || null,
       estado:                      'activo',
+      importe_servicio:            form.importe_servicio ? parseFloat(form.importe_servicio) : null,
     }
 
     const { data, error } = await supabase
@@ -536,6 +547,53 @@ export default function AltaServicioPage() {
     if (form.ataud_urna_id) {
       await supabase.from('stock').update({ disponible: false }).eq('id', form.ataud_urna_id)
     }
+
+    // ── Comisión ──────────────────────────────────────────────────────────────
+    const importe = form.importe_servicio ? parseFloat(form.importe_servicio) : 0
+    if (importe > 0 && asesorFinal) {
+      const { data: cfg } = await supabase
+        .from('configuracion_comisiones')
+        .select('base_minima, porcentaje')
+        .single()
+      const baseMinima = cfg?.base_minima ?? 500000
+      const porcentaje = cfg?.porcentaje ?? 3
+      if (importe >= baseMinima) {
+        const monto = Math.round(importe * porcentaje / 100)
+        const asesorObj = asesores.find(a => a.nombre === asesorFinal)
+        const fechaServicio = form.fecha_servicio
+          ? form.fecha_servicio.split('T')[0]
+          : new Date().toISOString().split('T')[0]
+        const { data: comision } = await supabase
+          .from('comisiones')
+          .insert({
+            servicio_id: (data as { id: string }).id,
+            asesor_nombre: asesorFinal,
+            asesor_whatsapp: asesorObj?.whatsapp ?? null,
+            importe_servicio: importe,
+            porcentaje,
+            monto_comision: monto,
+            fecha_servicio: fechaServicio,
+          })
+          .select('id')
+          .single()
+        // Notificar workflow n8n (fire and forget)
+        if (comision) {
+          fetch('https://cosa-santa-n8n.6nfych.easypanel.host/webhook/aura-comision', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              comision_id: (comision as { id: string }).id,
+              asesor_nombre: asesorFinal,
+              asesor_whatsapp: asesorObj?.whatsapp ?? null,
+              importe_servicio: importe,
+              monto_comision: monto,
+              fecha_servicio: fechaServicio,
+            }),
+          }).catch(() => {})
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const docs = getRequiredDocs(form.tipo_servicio, form.fallecido_obra_social, form.destino_final)
     setRequiredDocs(docs)
@@ -834,16 +892,24 @@ export default function AltaServicioPage() {
             )}
           </Section>
 
-          {/* S5 — Asesor */}
-          <Section badge="5" title="Asesor" isOpen={open.s5} onToggle={() => toggle('s5')}>
-            <Field label="Asesor que tomó el servicio" required>
-              <select value={form.asesor} required
-                onChange={e => set('asesor', e.target.value)} className={IC}>
-                <option value="">Seleccionar...</option>
-                {STAFF.map(n => <option key={n}>{n}</option>)}
-                <option value="Otro">Otro</option>
-              </select>
-            </Field>
+          {/* S5 — Asesor y Presupuesto */}
+          <Section badge="5" title="Asesor y Presupuesto" isOpen={open.s5} onToggle={() => toggle('s5')}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Asesor que tomó el servicio" required>
+                <select value={form.asesor} required
+                  onChange={e => set('asesor', e.target.value)} className={IC}>
+                  <option value="">Seleccionar...</option>
+                  {asesores.map(a => <option key={a.nombre} value={a.nombre}>{a.nombre}</option>)}
+                  <option value="Otro">Otro</option>
+                </select>
+              </Field>
+              <Field label="Importe del servicio ($)">
+                <input type="number" min={0} step={1000}
+                  value={form.importe_servicio}
+                  onChange={e => set('importe_servicio', e.target.value)}
+                  className={IC} placeholder="Ej: 850000" />
+              </Field>
+            </div>
             {form.asesor === 'Otro' && (
               <div className="mt-3">
                 <Field label="Nombre del asesor">
@@ -852,6 +918,11 @@ export default function AltaServicioPage() {
                     className={IC} placeholder="Nombre completo" />
                 </Field>
               </div>
+            )}
+            {form.importe_servicio && parseFloat(form.importe_servicio) >= 500000 && (
+              <p className="text-xs text-emerald-600 mt-2">
+                Comisión estimada (3%): ${Math.round(parseFloat(form.importe_servicio) * 0.03).toLocaleString('es-AR')}
+              </p>
             )}
           </Section>
 

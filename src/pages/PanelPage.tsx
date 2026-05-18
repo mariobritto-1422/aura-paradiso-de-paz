@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
-import { supabase, type DeudoFichado, type Servicio } from '../lib/supabase'
+import { supabase, type DeudoFichado, type Servicio, type Comision } from '../lib/supabase'
 
 const FORM_URL = `${window.location.origin}/`
 
@@ -124,7 +124,9 @@ export default function PanelPage() {
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<DeudoFichado[]>([])
   const [servicios, setServicios] = useState<Servicio[]>([])
+  const [comisiones, setComisiones] = useState<Comision[]>([])
   const [loading, setLoading] = useState(true)
+  const [asesorFiltro, setAsesorFiltro] = useState('')
   const qrRef = useRef<HTMLDivElement>(null)
 
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(getStoredSession)
@@ -136,6 +138,7 @@ export default function PanelPage() {
   useEffect(() => {
     loadSessions()
     loadServicios()
+    loadComisiones()
 
     const channel = supabase
       .channel('deudos_realtime')
@@ -174,6 +177,17 @@ export default function PanelPage() {
       .order('created_at', { ascending: false })
       .limit(50)
     if (data) setServicios(data as Servicio[])
+  }
+
+  async function loadComisiones() {
+    const inicio = new Date()
+    inicio.setDate(1); inicio.setHours(0, 0, 0, 0)
+    const { data } = await supabase
+      .from('comisiones')
+      .select('*')
+      .gte('created_at', inicio.toISOString())
+      .order('created_at', { ascending: false })
+    if (data) setComisiones(data as Comision[])
   }
 
   function downloadQR() {
@@ -219,6 +233,12 @@ export default function PanelPage() {
   const activos = sessions.filter(s => s.estado === 'activo').length
   const completos = sessions.filter(s => s.estado === 'completo').length
   const abandonados = sessions.filter(s => s.estado === 'abandonado').length
+
+  const asesoresUnicos = [...new Set(comisiones.map(c => c.asesor_nombre))].sort()
+  const comisionesFiltradas = asesorFiltro
+    ? comisiones.filter(c => c.asesor_nombre === asesorFiltro)
+    : comisiones
+  const totalMes = comisionesFiltradas.reduce((s, c) => s + c.monto_comision, 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -322,6 +342,60 @@ export default function PanelPage() {
                             Borrar
                           </button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── Comisiones del mes ─────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="font-semibold text-[#1B3A6B] text-sm">Comisiones del mes</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {comisionesFiltradas.length} registro{comisionesFiltradas.length !== 1 ? 's' : ''} —
+                Total: ${totalMes.toLocaleString('es-AR')}
+              </p>
+            </div>
+            <select value={asesorFiltro} onChange={e => setAsesorFiltro(e.target.value)}
+              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
+              <option value="">Todos los asesores</option>
+              {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+          {comisiones.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Sin comisiones registradas este mes.</div>
+          ) : comisionesFiltradas.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Sin comisiones para este asesor en el mes.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-gray-400 text-xs bg-gray-50">
+                    <th className="px-4 py-3 font-medium">Fecha</th>
+                    <th className="px-4 py-3 font-medium">Asesor</th>
+                    <th className="px-4 py-3 font-medium">Importe</th>
+                    <th className="px-4 py-3 font-medium">Comisión</th>
+                    <th className="px-4 py-3 font-medium">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {comisionesFiltradas.map(c => (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                        {new Date(c.fecha_servicio).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{c.asesor_nombre}</td>
+                      <td className="px-4 py-3 text-gray-500">${c.importe_servicio.toLocaleString('es-AR')}</td>
+                      <td className="px-4 py-3 font-semibold text-emerald-700">${c.monto_comision.toLocaleString('es-AR')}</td>
+                      <td className="px-4 py-3">
+                        {c.notificado
+                          ? <span className="text-xs bg-[#1B3A6B]/10 text-[#1B3A6B] px-2 py-0.5 rounded-full">Notificado</span>
+                          : <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full">Pendiente</span>}
                       </td>
                     </tr>
                   ))}

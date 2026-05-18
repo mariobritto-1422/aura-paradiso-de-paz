@@ -93,6 +93,7 @@ export type Servicio = {
   asesor: string | null
   estado: string
   garante_id: string | null
+  importe_servicio: number | null
 }
 
 export type Usuario = {
@@ -105,4 +106,46 @@ export type Usuario = {
 export type ServicioConDeudo = Servicio & {
   deudo: DeudoFichado | null
   garante: DeudoFichado | null
+}
+
+export type CatalogoAsesor = {
+  id: string
+  nombre: string
+  whatsapp: string | null
+  activo: boolean
+  created_at: string
+}
+
+export type Comision = {
+  id: string
+  servicio_id: string | null
+  asesor_nombre: string
+  asesor_whatsapp: string | null
+  importe_servicio: number
+  porcentaje: number
+  monto_comision: number
+  fecha_servicio: string
+  fecha_notificacion: string | null
+  notificado: boolean
+  created_at: string
+}
+
+export type Encuesta = {
+  id: string
+  servicio_id: string | null
+  deudo_nombre: string | null
+  deudo_whatsapp: string | null
+  puntuacion: number | null
+  comentario: string | null
+  fecha_envio: string | null
+  fecha_respuesta: string | null
+  respondida: boolean
+  created_at: string
+}
+
+export type ConfiguracionComisiones = {
+  id: string
+  base_minima: number
+  porcentaje: number
+  updated_at: string
 }
