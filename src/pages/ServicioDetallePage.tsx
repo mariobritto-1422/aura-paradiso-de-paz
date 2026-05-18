@@ -36,7 +36,25 @@ export default function ServicioDetallePage() {
       deudo = data as DeudoFichado | null
     }
 
-    setServicio({ ...(srv as Servicio), deudo })
+    let garante: DeudoFichado | null = null
+    const srvTyped = srv as Servicio
+    if (srvTyped.garante_id) {
+      const { data } = await supabase
+        .from('deudos_fichados')
+        .select('*')
+        .eq('id', srvTyped.garante_id)
+        .single()
+      garante = data as DeudoFichado | null
+    } else if (deudo?.session_token) {
+      const { data } = await supabase
+        .from('deudos_fichados')
+        .select('*')
+        .eq('session_token', deudo.session_token + ':g')
+        .maybeSingle()
+      garante = data as DeudoFichado | null
+    }
+
+    setServicio({ ...(srv as Servicio), deudo, garante })
     setLoading(false)
   }
 
@@ -81,8 +99,14 @@ export default function ServicioDetallePage() {
             <DataRow label="Asesor"      value={servicio.asesor} />
             {servicio.deudo && (
               <>
-                <DataRow label="Deudo"   value={servicio.deudo.nombre} />
-                <DataRow label="Celular" value={servicio.deudo.whatsapp ?? servicio.deudo.telefono} />
+                <DataRow label="Solicitante" value={servicio.deudo.nombre} />
+                <DataRow label="Celular"     value={servicio.deudo.whatsapp ?? servicio.deudo.telefono} />
+              </>
+            )}
+            {servicio.garante && (
+              <>
+                <DataRow label="Garante"       value={servicio.garante.nombre} />
+                <DataRow label="Cel. Garante"  value={servicio.garante.whatsapp ?? servicio.garante.telefono} />
               </>
             )}
           </div>

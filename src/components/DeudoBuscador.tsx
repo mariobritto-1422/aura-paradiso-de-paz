@@ -27,11 +27,21 @@ export function DeudoBuscador({ selected, onSelect, onFicharNuevo }: Props) {
 
   async function search() {
     setLoading(true)
+    const q = query.trim()
+    const dniNorm = q.replace(/[.\-\s]/g, '')
+    const nameNorm = q.normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+    const filters: string[] = [`nombre.ilike.%${q}%`]
+    if (nameNorm !== q) filters.push(`nombre.ilike.%${nameNorm}%`)
+    filters.push(`dni.ilike.%${dniNorm}%`)
+    if (dniNorm !== q) filters.push(`dni.ilike.%${q}%`)
+
     const { data } = await supabase
       .from('deudos_fichados')
       .select('*')
       .eq('estado', 'completo')
-      .or(`nombre.ilike.%${query}%,dni.ilike.%${query}%`)
+      .or('rol.is.null,rol.eq.solicitante')
+      .or(filters.join(','))
       .limit(8)
     const rows = (data as DeudoFichado[]) ?? []
     setResults(rows)

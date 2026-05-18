@@ -249,6 +249,12 @@ export default function PanelPage() {
             + Alta del servicio
           </button>
           <button
+            onClick={() => navigate('/configuracion')}
+            className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            Configuración
+          </button>
+          <button
             onClick={loadSessions}
             className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
           >

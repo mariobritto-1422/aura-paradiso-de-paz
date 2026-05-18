@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, type DeudoFichado } from '../lib/supabase'
+import { supabase, type DeudoFichado, type CatalogoItem } from '../lib/supabase'
 import { DeudoBuscador } from '../components/DeudoBuscador'
 import { StockSelector } from '../components/StockSelector'
 import { ComboSelect } from '../components/ComboSelect'
@@ -9,7 +9,7 @@ const IC =
   'w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 bg-white ' +
   'focus:outline-none focus:border-[#1B3A6B] focus:ring-1 focus:ring-[#1B3A6B] transition-colors text-sm'
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ─── Datos estáticos (lo que NO va a BD) ──────────────────────────────────────
 
 const LUGARES_DECESO = [
   'Sanatorio Boratti', 'Sanatorio Buenos Aires', 'Sanatorio Nosiglia',
@@ -19,17 +19,7 @@ const LUGARES_DECESO = [
   'Caps', 'Accidente de tránsito', 'Domicilio particular', 'Calle',
 ]
 
-const TIPOS_ATAUD = [
-  'PROTOTIPO (plano)', 'PROTOTIPO (baúl barniz)', 'PROTOTIPO (baúl l. lust)',
-  'PROTOTIPO (baulito)', 'PROTOTIPO (baulito 3 paneles)', 'PROTOTIPO (jaspeado)',
-  'PROTOTIPO (plano s.)', 'PROTOTIPO (barnizado)', 'PROTOTIPO (bau. lis.)',
-  'PROTOTIPO (baúl)', 'PROTOTIPO (bau. 3 paneles)', 'PROTOTIPO (baulito jaspeado)',
-  'PROTOTIPO (medida especial)', 'PROTOTIPO (baúl manija fija)', 'PROTOTIPO (baúl 2 paneles)',
-  'PROTOTIPO (super medida)', 'PROTOTIPO (social)', 'ATAUD SOCIAL DREWNA',
-  'ATAUD SOC. MEJ. DREWNA', 'ATAUD LISO FINO DREWNA',
-]
-
-const SALAS = ['A (Sala Fénix)', 'B (Sala Portal)', 'Garupa', 'Domicilio']
+const SALAS = ['Sala Fénix', 'Sala Descanso Eterno', 'Sala El Paraíso', 'Sala El Portal', 'Domicilio']
 
 const CAPILLAS = ['Ninguna', 'Capilla VIP', 'Capilla Económica', 'Capilla Estándar']
 
@@ -41,14 +31,15 @@ const STAFF = [
   'Lorena Salguero', 'Noelia Bolaño', 'Soledad Alegre', 'Ulises Velázquez',
 ]
 
-const DESTINOS = [
+// Destinos de fallback si la tabla está vacía
+const DESTINOS_BASE = [
   'La Piedad', 'Garupa', 'Paraguay', 'Parque Privado El Portal',
   'Cementerio San Antonio', 'San José', 'Campo Viera', 'Santo Pipó',
   'Candelaria', 'Leandro N. Alem', 'San Vicente', 'El Soberbio',
   'Gobernador Roca', 'San Antonio', 'Alvear (Corrientes)', 'Posadas (otros cementerios)',
 ]
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type ServicioForm = {
   fallecido_nombre: string; fallecido_dni: string
@@ -76,7 +67,7 @@ type ServicioForm = {
   doc_cenizas_orig: boolean; doc_cenizas_cop: boolean
   doc_carnet_orig: boolean; doc_carnet_cop: boolean
   doc_otros: string
-  deudo_id: string
+  deudo_id: string; garante_id: string
   asesor: string; asesor_custom: string
 }
 
@@ -104,7 +95,7 @@ const EMPTY: ServicioForm = {
   doc_factura_orig: false, doc_factura_cop: false,
   doc_cenizas_orig: false, doc_cenizas_cop: false,
   doc_carnet_orig: false, doc_carnet_cop: false,
-  doc_otros: '', deudo_id: '',
+  doc_otros: '', deudo_id: '', garante_id: '',
   asesor: '', asesor_custom: '',
 }
 
@@ -124,7 +115,7 @@ function getRequiredDocs(tipo: string, obraSocial: string, destino: string): str
   return docs
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Sub-componentes ──────────────────────────────────────────────────────────
 
 function Section({ title, badge, isOpen, onToggle, children }: {
   title: string; badge?: string; isOpen: boolean
@@ -132,15 +123,10 @@ function Section({ title, badge, isOpen, onToggle, children }: {
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-      >
+      <button type="button" onClick={onToggle}
+        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors">
         {badge && (
-          <span className="text-xs font-semibold text-[#B8956A] bg-[#B8956A]/10 px-2 py-0.5 rounded-full">
-            {badge}
-          </span>
+          <span className="text-xs font-semibold text-[#B8956A] bg-[#B8956A]/10 px-2 py-0.5 rounded-full">{badge}</span>
         )}
         <h3 className="flex-1 font-semibold text-[#1B3A6B] text-sm">{title}</h3>
         <svg className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
@@ -149,9 +135,7 @@ function Section({ title, badge, isOpen, onToggle, children }: {
         </svg>
       </button>
       {isOpen && (
-        <div className="px-5 pb-6 border-t border-gray-100 pt-5 space-y-4">
-          {children}
-        </div>
+        <div className="px-5 pb-6 border-t border-gray-100 pt-5 space-y-4">{children}</div>
       )}
     </div>
   )
@@ -224,8 +208,10 @@ function FicharModal({ onClose, onSuccess }: {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
-    const payload = { ...f, whatsapp: sameTel ? f.telefono : f.whatsapp,
-      session_token: crypto.randomUUID(), estado: 'completo' }
+    const payload = {
+      ...f, whatsapp: sameTel ? f.telefono : f.whatsapp,
+      session_token: crypto.randomUUID(), estado: 'completo', rol: 'solicitante',
+    }
     const { data, error } = await supabase.from('deudos_fichados').insert(payload).select().single()
     setSaving(false)
     if (!error && data) onSuccess(data as DeudoFichado)
@@ -235,7 +221,7 @@ function FicharModal({ onClose, onSuccess }: {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
       <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl my-4">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-semibold text-[#1B3A6B]">Fichar nuevo deudo</h3>
+          <h3 className="font-semibold text-[#1B3A6B]">Fichar solicitante</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
         <form onSubmit={submit} className="space-y-4">
@@ -243,7 +229,7 @@ function FicharModal({ onClose, onSuccess }: {
             { label: 'Nombre completo', name: 'nombre', type: 'text' },
             { label: 'DNI', name: 'dni', type: 'text' },
             { label: 'Teléfono', name: 'telefono', type: 'tel' },
-            { label: 'Email', name: 'email', type: 'email' },
+            { label: 'Email (opcional)', name: 'email', type: 'email' },
           ].map(({ label, name, type }) => (
             <div key={name}>
               <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide">{label}</label>
@@ -277,9 +263,7 @@ function FicharModal({ onClose, onSuccess }: {
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm">
-              Cancelar
-            </button>
+              className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm">Cancelar</button>
             <button type="submit" disabled={saving}
               className="flex-1 py-3 rounded-xl bg-[#1B3A6B] text-white text-sm disabled:opacity-60">
               {saving ? 'Guardando...' : 'Fichar y seleccionar'}
@@ -291,8 +275,10 @@ function FicharModal({ onClose, onSuccess }: {
   )
 }
 
-function ConfirmModal({ form, onCancel, onConfirm, saving }: {
+function ConfirmModal({ form, deudo, garante, onCancel, onConfirm, saving }: {
   form: ServicioForm
+  deudo: DeudoFichado | null
+  garante: DeudoFichado | null
   onCancel: () => void
   onConfirm: () => void
   saving: boolean
@@ -304,17 +290,15 @@ function ConfirmModal({ form, onCancel, onConfirm, saving }: {
   const rows: [string, string][] = [
     ['Fallecido', form.fallecido_nombre || '—'],
     ['DNI', form.fallecido_dni || '—'],
-    ['Fecha de deceso', form.fallecido_fecha_deceso
-      ? new Date(form.fallecido_fecha_deceso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-      : '—'],
-    ['Causa', form.fallecido_causa_fallecimiento || '—'],
     ['Tipo de servicio', form.tipo_servicio || '—'],
     ['Sala', salaDisplay],
-    ['Tipo de ataúd', form.ataud_tipo || '—'],
+    ['Ataúd', form.ataud_tipo || '—'],
     ['Tipo de entierro', form.tipo_entierro || '—'],
     ['Destino final', form.destino_final || '—'],
     ['Preparador', form.preparador || '—'],
     ['Asesor', asesorDisplay || '—'],
+    ['Solicitante', deudo?.nombre || '—'],
+    ['Garante', garante?.nombre || '—'],
   ]
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
@@ -414,13 +398,27 @@ export default function AltaServicioPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState<ServicioForm>(EMPTY)
   const [selectedDeudo, setSelectedDeudo] = useState<DeudoFichado | null>(null)
+  const [selectedGarante, setSelectedGarante] = useState<DeudoFichado | null>(null)
   const [saving, setSaving] = useState(false)
   const [showFichar, setShowFichar] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [screen, setScreen] = useState<'form' | 'success'>('form')
   const [savedOrden, setSavedOrden] = useState(0)
   const [requiredDocs, setRequiredDocs] = useState<string[]>([])
-  const [open, setOpen] = useState({ s1: true, s2: true, s3: true, s4: false, s5: true, s6: true })
+  const [open, setOpen] = useState({ s1: true, s2: true, s3: false, s4: true, s5: true })
+  const [preparadores, setPreparadores] = useState<string[]>([])
+  const [destinos, setDestinos] = useState<string[]>([])
+
+  useEffect(() => {
+    supabase.from('catalogos_preparador').select('nombre').eq('activo', true).order('nombre')
+      .then(({ data }) => {
+        if (data && data.length > 0) setPreparadores(data.map((r: { nombre: string }) => r.nombre))
+      })
+    supabase.from('catalogos_destino').select('nombre').eq('activo', true).order('nombre')
+      .then(({ data }) => {
+        setDestinos(data && data.length > 0 ? data.map((r: { nombre: string }) => r.nombre) : DESTINOS_BASE)
+      })
+  }, [])
 
   function toggle(s: keyof typeof open) {
     setOpen(prev => ({ ...prev, [s]: !prev[s] }))
@@ -429,7 +427,7 @@ export default function AltaServicioPage() {
   function set(field: keyof ServicioForm, value: string | boolean | number) {
     setForm(prev => {
       const next = { ...prev, [field]: value }
-      if (field === 'tipo_servicio') next.ataud_urna_id = ''
+      if (field === 'tipo_servicio') { next.ataud_urna_id = ''; next.ataud_tipo = '' }
       return next
     })
   }
@@ -438,19 +436,33 @@ export default function AltaServicioPage() {
     return (v: boolean) => set(field, v)
   }
 
-  function handleDeudoSelect(d: DeudoFichado | null) {
+  async function handleDeudoSelect(d: DeudoFichado | null) {
     setSelectedDeudo(d)
     set('deudo_id', d?.id ?? '')
+    setSelectedGarante(null)
+    set('garante_id', '')
+
+    if (d?.session_token) {
+      const { data } = await supabase
+        .from('deudos_fichados')
+        .select('*')
+        .eq('session_token', d.session_token + ':g')
+        .maybeSingle()
+      if (data) {
+        setSelectedGarante(data as DeudoFichado)
+        set('garante_id', (data as DeudoFichado).id)
+      }
+    }
   }
 
   function buildDocumentacion() {
     return {
-      acta_defuncion: { original: form.doc_acta_def_orig, copia: form.doc_acta_def_cop },
-      libreta_matrimonio: { original: form.doc_libreta_orig, copia: form.doc_libreta_cop },
-      recibo_haberes: { original: form.doc_recibo_orig, copia: form.doc_recibo_cop },
-      factura: { original: form.doc_factura_orig, copia: form.doc_factura_cop },
-      cenizas_cert: { original: form.doc_cenizas_orig, copia: form.doc_cenizas_cop },
-      carnet_obra_social: { original: form.doc_carnet_orig, copia: form.doc_carnet_cop },
+      acta_defuncion:    { original: form.doc_acta_def_orig, copia: form.doc_acta_def_cop },
+      libreta_matrimonio:{ original: form.doc_libreta_orig,  copia: form.doc_libreta_cop  },
+      recibo_haberes:    { original: form.doc_recibo_orig,   copia: form.doc_recibo_cop   },
+      factura:           { original: form.doc_factura_orig,  copia: form.doc_factura_cop  },
+      cenizas_cert:      { original: form.doc_cenizas_orig,  copia: form.doc_cenizas_cop  },
+      carnet_obra_social:{ original: form.doc_carnet_orig,   copia: form.doc_carnet_cop   },
       otros: form.doc_otros,
     }
   }
@@ -464,45 +476,46 @@ export default function AltaServicioPage() {
     setSaving(true)
     const asesorFinal = form.asesor === 'Otro' ? form.asesor_custom : form.asesor
     const payload = {
-      deudo_id: form.deudo_id || null,
-      fallecido_nombre: form.fallecido_nombre,
-      fallecido_dni: form.fallecido_dni || null,
-      fallecido_fecha_nacimiento: form.fallecido_fecha_nacimiento || null,
-      fallecido_fecha_deceso: form.fallecido_fecha_deceso || null,
-      fallecido_lugar_deceso: form.fallecido_lugar_deceso || null,
-      fallecido_nacionalidad: form.fallecido_nacionalidad || null,
-      fallecido_estado_civil: form.fallecido_estado_civil || null,
-      fallecido_religion: form.fallecido_religion || null,
-      fallecido_profesion: form.fallecido_profesion || null,
-      fallecido_obra_social: form.fallecido_obra_social || null,
-      fallecido_beneficio_nro: form.fallecido_beneficio_nro || null,
-      fallecido_talla: form.fallecido_talla || null,
-      fallecido_peso_kg: form.fallecido_peso_kg ? parseFloat(form.fallecido_peso_kg) : null,
+      deudo_id:                    form.deudo_id || null,
+      garante_id:                  form.garante_id || null,
+      fallecido_nombre:            form.fallecido_nombre,
+      fallecido_dni:               form.fallecido_dni || null,
+      fallecido_fecha_nacimiento:  form.fallecido_fecha_nacimiento || null,
+      fallecido_fecha_deceso:      form.fallecido_fecha_deceso || null,
+      fallecido_lugar_deceso:      form.fallecido_lugar_deceso || null,
+      fallecido_nacionalidad:      form.fallecido_nacionalidad || null,
+      fallecido_estado_civil:      form.fallecido_estado_civil || null,
+      fallecido_religion:          form.fallecido_religion || null,
+      fallecido_profesion:         form.fallecido_profesion || null,
+      fallecido_obra_social:       form.fallecido_obra_social || null,
+      fallecido_beneficio_nro:     form.fallecido_beneficio_nro || null,
+      fallecido_talla:             form.fallecido_talla || null,
+      fallecido_peso_kg:           form.fallecido_peso_kg ? parseFloat(form.fallecido_peso_kg) : null,
       fallecido_causa_fallecimiento: form.fallecido_causa_fallecimiento || null,
-      tipo_servicio: form.tipo_servicio,
-      ataud_tipo: form.ataud_tipo || null,
-      ataud_medida: form.ataud_medida ? parseInt(form.ataud_medida) : null,
-      ataud_ancho: form.ataud_ancho || null,
-      sala: form.sala || null,
-      sala_domicilio: form.sala === 'Domicilio' ? form.sala_domicilio || null : null,
-      capilla_ardiente: form.capilla_ardiente || null,
-      tipo_entierro: form.tipo_entierro || null,
-      preparador: form.preparador || null,
-      furgon_sanitario: form.furgon_sanitario,
-      coche_funebre: form.coche_funebre,
-      coche_porta_corona: form.coche_porta_corona,
-      coche_acompanamiento: form.coche_acompanamiento,
-      refrigerador: form.refrigerador,
-      coche_escolta: false,
-      coche_escolta_cantidad: 0,
-      tanatostetica: form.tanatostetica,
-      tanatopraxia: form.tanatopraxia,
-      destino_final: form.destino_final || null,
-      fecha_servicio: form.fecha_servicio || null,
-      ataud_urna_id: form.ataud_urna_id || null,
-      documentacion: buildDocumentacion(),
-      asesor: asesorFinal || null,
-      estado: 'activo',
+      tipo_servicio:               form.tipo_servicio,
+      ataud_tipo:                  form.ataud_tipo || null,
+      ataud_medida:                form.ataud_medida ? parseInt(form.ataud_medida) : null,
+      ataud_ancho:                 form.ataud_ancho || null,
+      sala:                        form.sala || null,
+      sala_domicilio:              form.sala === 'Domicilio' ? form.sala_domicilio || null : null,
+      capilla_ardiente:            form.capilla_ardiente || null,
+      tipo_entierro:               form.tipo_entierro || null,
+      preparador:                  form.preparador || null,
+      furgon_sanitario:            form.furgon_sanitario,
+      coche_funebre:               form.coche_funebre,
+      coche_porta_corona:          form.coche_porta_corona,
+      coche_acompanamiento:        form.coche_acompanamiento,
+      refrigerador:                form.refrigerador,
+      coche_escolta:               form.coche_acompanamiento,
+      coche_escolta_cantidad:      0,
+      tanatostetica:               form.tanatostetica,
+      tanatopraxia:                form.tanatopraxia,
+      destino_final:               form.destino_final || null,
+      fecha_servicio:              form.fecha_servicio || null,
+      ataud_urna_id:               form.ataud_urna_id || null,
+      documentacion:               buildDocumentacion(),
+      asesor:                      asesorFinal || null,
+      estado:                      'activo',
     }
 
     const { data, error } = await supabase
@@ -533,10 +546,11 @@ export default function AltaServicioPage() {
   function resetForm() {
     setForm(EMPTY)
     setSelectedDeudo(null)
+    setSelectedGarante(null)
     setSavedOrden(0)
     setRequiredDocs([])
     setScreen('form')
-    setOpen({ s1: true, s2: true, s3: true, s4: false, s5: true, s6: true })
+    setOpen({ s1: true, s2: true, s3: false, s4: true, s5: true })
   }
 
   const stockTipo: 'ataud' | 'urna' | null =
@@ -583,30 +597,26 @@ export default function AltaServicioPage() {
               </Field>
               <Field label="Fecha de nacimiento">
                 <input type="date" value={form.fallecido_fecha_nacimiento}
-                  onChange={e => set('fallecido_fecha_nacimiento', e.target.value)}
-                  className={IC} />
+                  onChange={e => set('fallecido_fecha_nacimiento', e.target.value)} className={IC} />
               </Field>
               <Field label="Fecha y hora de deceso">
                 <input type="datetime-local" value={form.fallecido_fecha_deceso}
-                  onChange={e => set('fallecido_fecha_deceso', e.target.value)}
-                  className={IC} />
+                  onChange={e => set('fallecido_fecha_deceso', e.target.value)} className={IC} />
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Lugar de deceso">
-                  <ComboSelect
-                    options={LUGARES_DECESO}
-                    value={form.fallecido_lugar_deceso}
+                  <ComboSelect options={LUGARES_DECESO} value={form.fallecido_lugar_deceso}
                     onChange={v => set('fallecido_lugar_deceso', v)}
-                    placeholder="Buscar sanatorio, hospital o ingresar..."
-                  />
+                    placeholder="Buscar sanatorio, hospital o ingresar..." />
                 </Field>
               </div>
               <Field label="Talla">
                 <select value={form.fallecido_talla}
                   onChange={e => set('fallecido_talla', e.target.value)} className={IC}>
                   <option value="">Seleccionar...</option>
-                  <option>Normal</option>
-                  <option>Especial</option>
+                  <option>Estándar</option>
+                  <option>Semi medida</option>
+                  <option>Extraordinario</option>
                 </select>
               </Field>
               <Field label="Peso Kg aproximado">
@@ -637,8 +647,7 @@ export default function AltaServicioPage() {
               </Field>
               <Field label="Profesión u ocupación">
                 <input type="text" value={form.fallecido_profesion}
-                  onChange={e => set('fallecido_profesion', e.target.value)}
-                  className={IC} />
+                  onChange={e => set('fallecido_profesion', e.target.value)} className={IC} />
               </Field>
               <Field label="Obra social / Afiliado a">
                 <input type="text" value={form.fallecido_obra_social}
@@ -647,8 +656,7 @@ export default function AltaServicioPage() {
               </Field>
               <Field label="Beneficio N°">
                 <input type="text" value={form.fallecido_beneficio_nro}
-                  onChange={e => set('fallecido_beneficio_nro', e.target.value)}
-                  className={IC} />
+                  onChange={e => set('fallecido_beneficio_nro', e.target.value)} className={IC} />
               </Field>
             </div>
           </Section>
@@ -668,29 +676,6 @@ export default function AltaServicioPage() {
                   onChange={e => set('capilla_ardiente', e.target.value)} className={IC}>
                   <option value="">Seleccionar...</option>
                   {CAPILLAS.map(o => <option key={o}>{o}</option>)}
-                </select>
-              </Field>
-              <div className="sm:col-span-2">
-                <Field label="Tipo de ataúd">
-                  <ComboSelect
-                    options={TIPOS_ATAUD}
-                    value={form.ataud_tipo}
-                    onChange={v => set('ataud_tipo', v)}
-                    placeholder="Buscar modelo o ingresar..."
-                  />
-                </Field>
-              </div>
-              <Field label="Medida">
-                <input type="number" min={1} value={form.ataud_medida}
-                  onChange={e => set('ataud_medida', e.target.value)}
-                  className={IC} placeholder="Ej: 15, 16, 17..." />
-              </Field>
-              <Field label="Ancho">
-                <select value={form.ataud_ancho}
-                  onChange={e => set('ataud_ancho', e.target.value)} className={IC}>
-                  <option value="">Seleccionar...</option>
-                  <option>Estándar</option>
-                  <option>SuperMedida</option>
                 </select>
               </Field>
               <Field label="Sala asignada">
@@ -715,12 +700,13 @@ export default function AltaServicioPage() {
                 </select>
               </Field>
               <Field label="Preparador">
-                <ComboSelect
-                  options={STAFF}
-                  value={form.preparador}
-                  onChange={v => set('preparador', v)}
-                  placeholder="Buscar o ingresar..."
-                />
+                {preparadores.length > 0
+                  ? <ComboSelect options={preparadores} value={form.preparador}
+                      onChange={v => set('preparador', v)} placeholder="Buscar o ingresar..." />
+                  : <input type="text" value={form.preparador}
+                      onChange={e => set('preparador', e.target.value)}
+                      className={IC} placeholder="Nombre del preparador" />
+                }
               </Field>
               <div className="sm:col-span-2">
                 <Field label="Fecha y hora del servicio">
@@ -730,24 +716,54 @@ export default function AltaServicioPage() {
               </div>
               <div className="sm:col-span-2">
                 <Field label="Destino final">
-                  <ComboSelect
-                    options={DESTINOS}
-                    value={form.destino_final}
+                  <ComboSelect options={destinos} value={form.destino_final}
                     onChange={v => set('destino_final', v)}
-                    placeholder="Buscar localidad o ingresar..."
-                  />
+                    placeholder="Buscar localidad o ingresar..." />
                 </Field>
               </div>
+
+              {/* Ataúd / Urna — selector unificado */}
+              {stockTipo && (
+                <div className="sm:col-span-2">
+                  <Field label={stockTipo === 'ataud' ? 'Ataúd' : 'Urna'}>
+                    <StockSelector
+                      tipo={stockTipo}
+                      value={form.ataud_urna_id}
+                      onChange={(id, modelo) => {
+                        set('ataud_urna_id', id)
+                        if (modelo) set('ataud_tipo', modelo)
+                      }}
+                    />
+                  </Field>
+                  {form.ataud_urna_id && (
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <Field label="Medida">
+                        <input type="number" min={1} value={form.ataud_medida}
+                          onChange={e => set('ataud_medida', e.target.value)}
+                          className={IC} placeholder="Ej: 15, 16, 17..." />
+                      </Field>
+                      <Field label="Ancho">
+                        <select value={form.ataud_ancho}
+                          onChange={e => set('ataud_ancho', e.target.value)} className={IC}>
+                          <option value="">Seleccionar...</option>
+                          <option>Estándar</option>
+                          <option>SuperMedida</option>
+                        </select>
+                      </Field>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Vehículos / Recursos</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <CheckItem label="Furgón Sanitario" checked={form.furgon_sanitario} onChange={v => set('furgon_sanitario', v)} />
-                <CheckItem label="Coche Fúnebre" checked={form.coche_funebre} onChange={v => set('coche_funebre', v)} />
+                <CheckItem label="Carroza Fúnebre" checked={form.coche_funebre} onChange={v => set('coche_funebre', v)} />
                 <CheckItem label="Coche Porta Corona" checked={form.coche_porta_corona} onChange={v => set('coche_porta_corona', v)} />
-                <CheckItem label="Coche de Acompañamiento" checked={form.coche_acompanamiento} onChange={v => set('coche_acompanamiento', v)} />
-                <CheckItem label="Refrigerador" checked={form.refrigerador} onChange={v => set('refrigerador', v)} />
+                <CheckItem label="Coche Escolta" checked={form.coche_acompanamiento} onChange={v => set('coche_acompanamiento', v)} />
+                <CheckItem label="Refrigerio" checked={form.refrigerador} onChange={v => set('refrigerador', v)} />
               </div>
             </div>
 
@@ -760,23 +776,8 @@ export default function AltaServicioPage() {
             </div>
           </Section>
 
-          {/* S3 — Ataúd / Urna (stock físico) */}
-          {stockTipo && (
-            <Section badge="3" title={stockTipo === 'ataud' ? 'Ataúd — Stock físico' : 'Urna — Stock físico'}
-              isOpen={open.s3} onToggle={() => toggle('s3')}>
-              <p className="text-xs text-gray-500 mb-2">
-                Asignar ítem del inventario físico. Al guardar, se marca como no disponible.
-              </p>
-              <StockSelector
-                tipo={stockTipo}
-                value={form.ataud_urna_id}
-                onChange={id => set('ataud_urna_id', id)}
-              />
-            </Section>
-          )}
-
-          {/* S4 — Documentación */}
-          <Section badge="4" title="Documentación recibida" isOpen={open.s4} onToggle={() => toggle('s4')}>
+          {/* S3 — Documentación */}
+          <Section badge="3" title="Documentación recibida" isOpen={open.s3} onToggle={() => toggle('s3')}>
             <div className="text-xs text-gray-400 grid grid-cols-2 gap-x-6 mb-1">
               <span />
               <div className="flex gap-6 justify-end">
@@ -804,20 +805,29 @@ export default function AltaServicioPage() {
             </div>
           </Section>
 
-          {/* S5 — Deudo */}
-          <Section badge="5" title="Vinculación con el deudo" isOpen={open.s5} onToggle={() => toggle('s5')}>
+          {/* S4 — Deudo / Solicitante */}
+          <Section badge="4" title="Solicitante y Garante" isOpen={open.s4} onToggle={() => toggle('s4')}>
             <p className="text-xs text-gray-500 mb-3">
-              Buscá al deudo que ya completó el formulario QR. Si no está registrado, podés ficharlo manualmente.
+              Buscá al solicitante que completó el formulario QR. Al seleccionarlo, el garante se carga automáticamente.
             </p>
             <DeudoBuscador
               selected={selectedDeudo}
               onSelect={handleDeudoSelect}
               onFicharNuevo={() => setShowFichar(true)}
             />
+            {selectedGarante && (
+              <div className="mt-3 flex items-center gap-3 p-3 bg-[#B8956A]/10 border border-[#B8956A]/30 rounded-xl">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-[#B8956A] font-medium uppercase tracking-wide mb-0.5">Garante vinculado</p>
+                  <p className="font-medium text-sm text-gray-800 truncate">{selectedGarante.nombre}</p>
+                  <p className="text-xs text-gray-500">DNI: {selectedGarante.dni ?? '—'} · {selectedGarante.relacion_fallecido ?? '—'}</p>
+                </div>
+              </div>
+            )}
           </Section>
 
-          {/* S6 — Asesor */}
-          <Section badge="6" title="Asesor" isOpen={open.s6} onToggle={() => toggle('s6')}>
+          {/* S5 — Asesor */}
+          <Section badge="5" title="Asesor" isOpen={open.s5} onToggle={() => toggle('s5')}>
             <Field label="Asesor que tomó el servicio" required>
               <select value={form.asesor} required
                 onChange={e => set('asesor', e.target.value)} className={IC}>
@@ -857,6 +867,8 @@ export default function AltaServicioPage() {
       {showConfirm && (
         <ConfirmModal
           form={form}
+          deudo={selectedDeudo}
+          garante={selectedGarante}
           onCancel={() => setShowConfirm(false)}
           onConfirm={handleConfirm}
           saving={saving}

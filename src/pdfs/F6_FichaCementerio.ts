@@ -73,10 +73,15 @@ const C = {
   // Asesor
   asesor:          { x: 53.7,  y: 212.6 },
 
-  // Deudo principal
-  deudo_nombre:    { x: 49.1,  y: 224.9 },
-  deudo_dni:       { x: 25.3,  y: 230.3 },
-  deudo_cel:       { x: 149.6, y: 229.4 },
+  // Solicitante
+  sol_nombre:      { x: 49.1,  y: 224.9 },
+  sol_dni:         { x: 25.3,  y: 230.3 },
+  sol_cel:         { x: 149.6, y: 229.4 },
+
+  // Garante (coordenadas aproximadas — calibrar con /calibrar)
+  gar_nombre:      { x: 49.1,  y: 242.0 },
+  gar_dni:         { x: 25.3,  y: 247.5 },
+  gar_cel:         { x: 149.6, y: 247.5 },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -191,15 +196,22 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   // — Asesor —
   txt(pdf, s.asesor ?? '', C.asesor.x, C.asesor.y)
 
-  // — Deudo principal —
-  txt(pdf, s.deudo?.nombre ?? '',    C.deudo_nombre.x, C.deudo_nombre.y)
-  txt(pdf, s.deudo?.dni ?? '',       C.deudo_dni.x,    C.deudo_dni.y)
-  txt(pdf, s.deudo?.whatsapp ?? s.deudo?.telefono ?? '', C.deudo_cel.x, C.deudo_cel.y)
+  // — Solicitante —
+  txt(pdf, s.deudo?.nombre ?? '',                        C.sol_nombre.x, C.sol_nombre.y)
+  txt(pdf, s.deudo?.dni ?? '',                           C.sol_dni.x,    C.sol_dni.y)
+  txt(pdf, s.deudo?.whatsapp ?? s.deudo?.telefono ?? '', C.sol_cel.x,    C.sol_cel.y)
+
+  // — Garante —
+  if (s.garante) {
+    txt(pdf, s.garante.nombre ?? '',                           C.gar_nombre.x, C.gar_nombre.y)
+    txt(pdf, s.garante.dni ?? '',                              C.gar_dni.x,    C.gar_dni.y)
+    txt(pdf, s.garante.whatsapp ?? s.garante.telefono ?? '',   C.gar_cel.x,    C.gar_cel.y)
+  }
 }
 
 export const F6_INFO: FormularioInfo = {
   id: 'F6',
-  nombre: 'Ficha Ingreso Cementerio La Piedad',
+  nombre: 'Conformidad del Servicio Principal — Paraíso de Paz',
   imagen: '/formularios/paz_6.png',
   generarFn: generarF6,
 }

@@ -4,37 +4,40 @@ import { supabase } from '../lib/supabase'
 const TIMEOUT_MS = 10 * 60 * 1000
 const WARN_MS = 8 * 60 * 1000
 
-const INPUT_CLASS =
+const IC =
   'w-full border border-gray-300 rounded-xl px-4 py-3.5 text-gray-800 bg-white ' +
   'focus:outline-none focus:border-[#1B3A6B] focus:ring-1 focus:ring-[#1B3A6B] transition-colors'
 
-type FormState = {
+type Persona = {
   nombre: string
   dni: string
-  telefono: string
+  fecha_nacimiento: string
+  celular: string
   whatsapp: string
   email: string
+  domicilio: string
+  trabajo_ocupacion: string
   relacion_fallecido: string
   canal_notificacion: string
 }
 
+const EMPTY_P: Persona = {
+  nombre: '', dni: '', fecha_nacimiento: '',
+  celular: '', whatsapp: '', email: '',
+  domicilio: '', trabajo_ocupacion: '',
+  relacion_fallecido: '', canal_notificacion: 'WhatsApp',
+}
+
 type Screen = 'loading' | 'form' | 'success' | 'expired' | 'error'
 
-const EMPTY: FormState = {
-  nombre: '',
-  dni: '',
-  telefono: '',
-  whatsapp: '',
-  email: '',
-  relacion_fallecido: '',
-  canal_notificacion: '',
-}
+const RELACIONES = ['Cónyuge', 'Hijo/a', 'Hermano/a', 'Padre/Madre', 'Otro']
 
 export default function FormPage() {
   const [screen, setScreen] = useState<Screen>('loading')
   const [token, setToken] = useState('')
-  const [form, setForm] = useState<FormState>(EMPTY)
-  const [sameTel, setSameTel] = useState(false)
+  const [sol, setSol] = useState<Persona>(EMPTY_P)
+  const [gar, setGar] = useState<Persona>(EMPTY_P)
+  const [sameTelSol, setSameTelSol] = useState(false)
   const [saving, setSaving] = useState(false)
   const [dupModal, setDupModal] = useState(false)
   const [warnVisible, setWarnVisible] = useState(false)
@@ -65,18 +68,14 @@ export default function FormPage() {
 
     const { error } = await supabase
       .from('deudos_fichados')
-      .upsert({ session_token: t, estado: 'activo' }, { onConflict: 'session_token', ignoreDuplicates: true })
+      .upsert({ session_token: t, estado: 'activo', rol: 'solicitante' }, { onConflict: 'session_token', ignoreDuplicates: true })
 
-    if (error) {
-      setScreen('error')
-      return
-    }
+    if (error) { setScreen('error'); return }
 
     setScreen('form')
     warnRef.current = setTimeout(() => setWarnVisible(true), WARN_MS)
     timerRef.current = setTimeout(async () => {
-      await supabase
-        .from('deudos_fichados')
+      await supabase.from('deudos_fichados')
         .update({ estado: 'abandonado' })
         .eq('session_token', t)
         .eq('estado', 'activo')
@@ -84,18 +83,14 @@ export default function FormPage() {
     }, TIMEOUT_MS)
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  function chSol(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target
-    setForm(prev => {
-      const next = { ...prev, [name]: value }
-      if (name === 'telefono' && sameTel) next.whatsapp = value
-      return next
-    })
+    setSol(prev => ({ ...prev, [name]: value, ...(name === 'celular' && sameTelSol ? { whatsapp: value } : {}) }))
   }
 
-  function toggleSameTel(checked: boolean) {
-    setSameTel(checked)
-    if (checked) setForm(prev => ({ ...prev, whatsapp: prev.telefono }))
+  function chGar(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target
+    setGar(prev => ({ ...prev, [name]: value }))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -106,7 +101,7 @@ export default function FormPage() {
     const { data: dups } = await supabase
       .from('deudos_fichados')
       .select('id')
-      .eq('dni', form.dni)
+      .eq('dni', sol.dni)
       .eq('estado', 'completo')
       .gte('created_at', since)
 
@@ -124,18 +119,47 @@ export default function FormPage() {
     clearTimeout(timerRef.current)
     clearTimeout(warnRef.current)
 
-    const payload = sameTel ? { ...form, whatsapp: form.telefono } : form
-    const { error } = await supabase
+    const whatsappSol = sameTelSol ? sol.celular : sol.whatsapp
+
+    // Guardar solicitante
+    const { error: e1 } = await supabase
       .from('deudos_fichados')
-      .update({ ...payload, estado: 'completo' })
+      .update({
+        nombre: sol.nombre,
+        dni: sol.dni,
+        fecha_nacimiento: sol.fecha_nacimiento || null,
+        telefono: sol.celular,
+        whatsapp: whatsappSol,
+        email: sol.email || null,
+        domicilio: sol.domicilio || null,
+        trabajo_ocupacion: sol.trabajo_ocupacion || null,
+        relacion_fallecido: sol.relacion_fallecido,
+        canal_notificacion: sol.canal_notificacion,
+        rol: 'solicitante',
+        estado: 'completo',
+      })
       .eq('session_token', token)
+
+    // Guardar garante
+    const { error: e2 } = await supabase
+      .from('deudos_fichados')
+      .upsert({
+        session_token: token + ':g',
+        nombre: gar.nombre,
+        dni: gar.dni,
+        fecha_nacimiento: gar.fecha_nacimiento || null,
+        telefono: gar.celular,
+        whatsapp: gar.celular,
+        domicilio: gar.domicilio || null,
+        trabajo_ocupacion: gar.trabajo_ocupacion || null,
+        relacion_fallecido: gar.relacion_fallecido,
+        rol: 'garante',
+        estado: 'completo',
+      }, { onConflict: 'session_token', ignoreDuplicates: false })
 
     setSaving(false)
 
-    if (error) {
-      setScreen('error')
-      return
-    }
+    if (e1 || e2) { setScreen('error'); return }
 
     sessionStorage.setItem('aura_status', 'completo')
     setDupModal(false)
@@ -159,126 +183,129 @@ export default function FormPage() {
 
       <div className="max-w-lg mx-auto px-5 py-8">
         <p className="text-gray-600 text-sm leading-relaxed mb-8 text-center">
-          Complete sus datos de contacto.<br />
-          Un asesor de Paraíso de Paz se comunicará con usted a la brevedad.
+          Complete los datos del <strong>Solicitante</strong> y del <strong>Garante</strong>.<br />
+          Un asesor de Paraíso de Paz se comunicará a la brevedad.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <Field label="Nombre completo">
-            <input
-              type="text"
-              name="nombre"
-              value={form.nombre}
-              onChange={handleChange}
-              required
-              className={INPUT_CLASS}
-              placeholder="Ej: María González"
-              autoComplete="name"
-            />
-          </Field>
+        <form onSubmit={handleSubmit} className="space-y-6">
 
-          <Field label="DNI">
-            <input
-              type="text"
-              inputMode="numeric"
-              name="dni"
-              value={form.dni}
-              onChange={handleChange}
-              required
-              className={INPUT_CLASS}
-              placeholder="Sin puntos ni espacios"
-              autoComplete="off"
-            />
-          </Field>
-
-          <Field label="Teléfono">
-            <input
-              type="tel"
-              name="telefono"
-              value={form.telefono}
-              onChange={handleChange}
-              required
-              className={INPUT_CLASS}
-              placeholder="376 154-12345"
-              autoComplete="tel"
-            />
-          </Field>
-
-          <div>
-            <Field label="WhatsApp">
-              <input
-                type="tel"
-                name="whatsapp"
-                value={sameTel ? form.telefono : form.whatsapp}
-                onChange={handleChange}
-                required
-                disabled={sameTel}
-                className={INPUT_CLASS + (sameTel ? ' opacity-60 bg-gray-50' : '')}
-                placeholder="376 154-12345"
-              />
-            </Field>
-            <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={sameTel}
-                onChange={e => toggleSameTel(e.target.checked)}
-                className="w-4 h-4 accent-[#1B3A6B]"
-              />
-              <span className="text-sm text-gray-500">Mismo número que el teléfono</span>
-            </label>
+          {/* ── SECCIÓN A — SOLICITANTE ── */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-[#1B3A6B] px-5 py-3 flex items-center gap-3">
+              <span className="w-7 h-7 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">A</span>
+              <h2 className="text-white text-sm font-semibold">Datos del Solicitante</h2>
+              <span className="text-[#B8956A] text-xs">(quien contrata el servicio)</span>
+            </div>
+            <div className="p-5 space-y-4">
+              <Field label="Apellido y Nombre">
+                <input type="text" name="nombre" value={sol.nombre} onChange={chSol}
+                  required className={IC} placeholder="Apellido, Nombre completo" autoComplete="name" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="DNI">
+                  <input type="text" inputMode="numeric" name="dni" value={sol.dni} onChange={chSol}
+                    required className={IC} placeholder="Sin puntos" autoComplete="off" />
+                </Field>
+                <Field label="Fecha de nacimiento">
+                  <input type="date" name="fecha_nacimiento" value={sol.fecha_nacimiento} onChange={chSol}
+                    required className={IC} />
+                </Field>
+              </div>
+              <Field label="Celular">
+                <input type="tel" name="celular" value={sol.celular} onChange={chSol}
+                  required className={IC} placeholder="376 154-12345" autoComplete="tel" />
+              </Field>
+              <div>
+                <Field label="WhatsApp">
+                  <input type="tel" name="whatsapp" value={sameTelSol ? sol.celular : sol.whatsapp}
+                    onChange={chSol} required disabled={sameTelSol}
+                    className={IC + (sameTelSol ? ' opacity-60 bg-gray-50' : '')}
+                    placeholder="376 154-12345" />
+                </Field>
+                <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={sameTelSol}
+                    onChange={e => { setSameTelSol(e.target.checked); if (e.target.checked) setSol(p => ({ ...p, whatsapp: p.celular })) }}
+                    className="w-4 h-4 accent-[#1B3A6B]" />
+                  <span className="text-sm text-gray-500">Mismo número que el celular</span>
+                </label>
+              </div>
+              <Field label="Email" required={false}>
+                <input type="email" name="email" value={sol.email} onChange={chSol}
+                  className={IC} placeholder="correo@ejemplo.com" autoComplete="email" />
+              </Field>
+              <Field label="Domicilio">
+                <input type="text" name="domicilio" value={sol.domicilio} onChange={chSol}
+                  required className={IC} placeholder="Calle, número, barrio..." />
+              </Field>
+              <Field label="Trabajo / Ocupación">
+                <input type="text" name="trabajo_ocupacion" value={sol.trabajo_ocupacion} onChange={chSol}
+                  className={IC} placeholder="Empresa u ocupación" />
+              </Field>
+              <Field label="Relación con el fallecido">
+                <select name="relacion_fallecido" value={sol.relacion_fallecido} onChange={chSol}
+                  required className={IC}>
+                  <option value="">Seleccione una opción</option>
+                  {RELACIONES.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </Field>
+              <Field label="Canal de notificación preferido">
+                <select name="canal_notificacion" value={sol.canal_notificacion} onChange={chSol}
+                  required className={IC}>
+                  <option>WhatsApp</option>
+                  <option>Email</option>
+                </select>
+              </Field>
+            </div>
           </div>
 
-          <Field label="Email">
-            <input
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              required
-              className={INPUT_CLASS}
-              placeholder="correo@ejemplo.com"
-              autoComplete="email"
-            />
-          </Field>
+          {/* ── SECCIÓN B — GARANTE ── */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-[#1B3A6B] px-5 py-3 flex items-center gap-3">
+              <span className="w-7 h-7 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">B</span>
+              <h2 className="text-white text-sm font-semibold">Datos del Garante</h2>
+              <span className="text-[#B8956A] text-xs">(quien puede retirar documentación)</span>
+            </div>
+            <div className="p-5 space-y-4">
+              <Field label="Apellido y Nombre">
+                <input type="text" name="nombre" value={gar.nombre} onChange={chGar}
+                  required className={IC} placeholder="Apellido, Nombre completo" />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="DNI">
+                  <input type="text" inputMode="numeric" name="dni" value={gar.dni} onChange={chGar}
+                    required className={IC} placeholder="Sin puntos" autoComplete="off" />
+                </Field>
+                <Field label="Fecha de nacimiento">
+                  <input type="date" name="fecha_nacimiento" value={gar.fecha_nacimiento} onChange={chGar}
+                    required className={IC} />
+                </Field>
+              </div>
+              <Field label="Celular">
+                <input type="tel" name="celular" value={gar.celular} onChange={chGar}
+                  required className={IC} placeholder="376 154-12345" />
+              </Field>
+              <Field label="Domicilio">
+                <input type="text" name="domicilio" value={gar.domicilio} onChange={chGar}
+                  required className={IC} placeholder="Calle, número, barrio..." />
+              </Field>
+              <Field label="Trabajo / Ocupación">
+                <input type="text" name="trabajo_ocupacion" value={gar.trabajo_ocupacion} onChange={chGar}
+                  className={IC} placeholder="Empresa u ocupación" />
+              </Field>
+              <Field label="Relación con el fallecido">
+                <select name="relacion_fallecido" value={gar.relacion_fallecido} onChange={chGar}
+                  required className={IC}>
+                  <option value="">Seleccione una opción</option>
+                  {RELACIONES.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </Field>
+            </div>
+          </div>
 
-          <Field label="Relación con el fallecido">
-            <select
-              name="relacion_fallecido"
-              value={form.relacion_fallecido}
-              onChange={handleChange}
-              required
-              className={INPUT_CLASS}
-            >
-              <option value="">Seleccione una opción</option>
-              <option>Cónyuge</option>
-              <option>Hijo/a</option>
-              <option>Hermano/a</option>
-              <option>Padre/Madre</option>
-              <option>Otro</option>
-            </select>
-          </Field>
-
-          <Field label="Canal de notificación preferido">
-            <select
-              name="canal_notificacion"
-              value={form.canal_notificacion}
-              onChange={handleChange}
-              required
-              className={INPUT_CLASS}
-            >
-              <option value="">Seleccione una opción</option>
-              <option>WhatsApp</option>
-              <option>Email</option>
-            </select>
-          </Field>
-
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full bg-[#1B3A6B] text-white py-4 rounded-xl text-base font-medium disabled:opacity-60 active:bg-[#152e57] transition-colors"
-            >
-              {saving ? 'Enviando...' : 'Enviar mis datos'}
+          <div className="pt-2 pb-4">
+            <button type="submit" disabled={saving}
+              className="w-full bg-[#1B3A6B] text-white py-4 rounded-xl text-base font-medium disabled:opacity-60 active:bg-[#152e57] transition-colors">
+              {saving ? 'Enviando...' : 'Enviar datos'}
             </button>
             <p className="text-center text-gray-400 text-xs mt-3">
               Sus datos son confidenciales y solo serán utilizados por el equipo de Paraíso de Paz.
@@ -301,16 +328,14 @@ export default function FormPage() {
   )
 }
 
+// ─── Sub-componentes ──────────────────────────────────────────────────────────
+
 function Header() {
   return (
     <div className="bg-[#1B3A6B] text-white py-7 px-4 text-center">
       <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3 border-2 border-[#B8956A]/40">
-        <img
-          src="/PP_jpg.png"
-          alt="Paraíso de Paz"
-          className="w-full h-full object-cover"
-          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
-        />
+        <img src="/PP_jpg.png" alt="Paraíso de Paz" className="w-full h-full object-cover"
+          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
       </div>
       <h1 className="text-lg font-semibold tracking-wide">Cochería Paraíso de Paz</h1>
       <p className="text-[#B8956A] text-sm mt-1 italic">Hacemos más fácil, tus momentos difíciles</p>
@@ -318,20 +343,21 @@ function Header() {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, required = true }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        {label} <span className="text-[#B8956A]">*</span>
+        {label}{' '}
+        {required
+          ? <span className="text-[#B8956A]">*</span>
+          : <span className="text-gray-400 text-xs font-normal">(opcional)</span>}
       </label>
       {children}
     </div>
   )
 }
 
-function Modal({
-  title, body, confirmLabel, onConfirm, onCancel, disabled,
-}: {
+function Modal({ title, body, confirmLabel, onConfirm, onCancel, disabled }: {
   title: string; body: string; confirmLabel: string
   onConfirm: () => void; onCancel: () => void; disabled: boolean
 }) {
@@ -341,17 +367,12 @@ function Modal({
         <h3 className="text-[#1B3A6B] font-semibold text-base mb-2">{title}</h3>
         <p className="text-gray-600 text-sm leading-relaxed mb-5">{body}</p>
         <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium"
-          >
+          <button onClick={onCancel}
+            className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium">
             Cancelar
           </button>
-          <button
-            onClick={onConfirm}
-            disabled={disabled}
-            className="flex-1 py-3 rounded-xl bg-[#1B3A6B] text-white text-sm font-medium disabled:opacity-60"
-          >
+          <button onClick={onConfirm} disabled={disabled}
+            className="flex-1 py-3 rounded-xl bg-[#1B3A6B] text-white text-sm font-medium disabled:opacity-60">
             {confirmLabel}
           </button>
         </div>
@@ -364,12 +385,8 @@ function Loading() {
   return (
     <div className="min-h-screen bg-[#1B3A6B] flex flex-col items-center justify-center">
       <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-2 border-[#B8956A]/40">
-        <img
-          src="/PP_jpg.png"
-          alt="Paraíso de Paz"
-          className="w-full h-full object-cover"
-          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }}
-        />
+        <img src="/PP_jpg.png" alt="Paraíso de Paz" className="w-full h-full object-cover"
+          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
       </div>
       <p className="text-[#B8956A] text-sm">Cargando...</p>
     </div>
@@ -403,14 +420,11 @@ function Expired() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
         <h2 className="text-[#1B3A6B] text-xl font-semibold mb-3">Sesión expirada</h2>
         <p className="text-gray-600 text-sm leading-relaxed max-w-xs mb-6">
-          El tiempo para completar el formulario ha vencido. Por favor escanee el QR nuevamente para iniciar una nueva sesión.
+          El tiempo para completar el formulario ha vencido. Por favor escanee el QR nuevamente.
         </p>
-        <p className="text-gray-500 text-sm">
-          ¿Necesita atención inmediata?{' '}
-          <a href="tel:037644757850" className="text-[#1B3A6B] underline font-medium">
-            (0376) 4475785
-          </a>
-        </p>
+        <a href="tel:037644757850" className="text-[#1B3A6B] underline text-sm font-medium">
+          (0376) 4475785
+        </a>
       </div>
     </div>
   )
@@ -423,15 +437,10 @@ function Error() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
         <h2 className="text-[#1B3A6B] text-xl font-semibold mb-3">Error de conexión</h2>
         <p className="text-gray-600 text-sm leading-relaxed max-w-xs mb-6">
-          No pudimos conectar con el sistema. Por favor intente nuevamente o comuníquese directamente.
+          No pudimos conectar con el sistema. Intente nuevamente o comuníquese directamente.
         </p>
-        <a href="tel:037644757850" className="text-[#1B3A6B] underline text-sm font-medium mb-4">
-          (0376) 4475785
-        </a>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-[#1B3A6B] text-white px-6 py-3 rounded-xl text-sm font-medium"
-        >
+        <button onClick={() => window.location.reload()}
+          className="bg-[#1B3A6B] text-white px-6 py-3 rounded-xl text-sm font-medium">
           Reintentar
         </button>
       </div>

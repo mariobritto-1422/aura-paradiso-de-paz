@@ -48,6 +48,16 @@ const C = {
   firma_aclaracion:    { x: 169.2, y: 270.3 },
 }
 
+function calcularEdad(fechaNac: string | null | undefined, fechaRef: string | null | undefined): string {
+  if (!fechaNac) return ''
+  const nac = new Date(fechaNac)
+  const ref = fechaRef ? new Date(fechaRef) : new Date()
+  let edad = ref.getFullYear() - nac.getFullYear()
+  const m = ref.getMonth() - nac.getMonth()
+  if (m < 0 || (m === 0 && ref.getDate() < nac.getDate())) edad--
+  return String(edad)
+}
+
 function generarF1(pdf: jsPDF, s: ServicioConDeudo) {
   const fechaDoc = s.created_at ? new Date(s.created_at) : new Date()
   const dia  = String(fechaDoc.getDate()).padStart(2, '0')
@@ -58,16 +68,21 @@ function generarF1(pdf: jsPDF, s: ServicioConDeudo) {
   const partes = s.fallecido_nombre.split(',')
   txt(pdf, partes[0]?.trim() ?? s.fallecido_nombre, C.fall_apellido.x, C.fall_apellido.y)
   txt(pdf, partes[1]?.trim() ?? '',                  C.fall_nombres.x,  C.fall_nombres.y)
+  txt(pdf, calcularEdad(s.fallecido_fecha_nacimiento, s.fallecido_fecha_deceso), C.fall_edad.x, C.fall_edad.y)
   txt(pdf, s.fallecido_dni ?? '',                    C.fall_dni.x,      C.fall_dni.y)
 
-  // Responsable (deudo)
-  if (s.deudo) {
-    const dPartes = (s.deudo.nombre ?? '').split(',')
-    txt(pdf, dPartes[0]?.trim() ?? s.deudo.nombre ?? '', C.resp_apellido.x,   C.resp_apellido.y)
-    txt(pdf, dPartes[1]?.trim() ?? '',                    C.resp_nombres.x,    C.resp_nombres.y)
-    txt(pdf, s.deudo.dni      ?? '',                      C.resp_dni.x,        C.resp_dni.y)
-    txt(pdf, s.deudo.telefono ?? '',                      C.resp_tel.x,        C.resp_tel.y)
-    txt(pdf, s.deudo.email    ?? '',                      C.resp_email.x,      C.resp_email.y)
+  // Responsable (solicitante = deudo principal)
+  const resp = s.deudo
+  if (resp) {
+    const dPartes = (resp.nombre ?? '').split(',')
+    txt(pdf, dPartes[0]?.trim() ?? resp.nombre ?? '', C.resp_apellido.x,   C.resp_apellido.y)
+    txt(pdf, dPartes[1]?.trim() ?? '',                 C.resp_nombres.x,    C.resp_nombres.y)
+    txt(pdf, resp.dni                  ?? '',           C.resp_dni.x,        C.resp_dni.y)
+    txt(pdf, resp.relacion_fallecido   ?? '',           C.resp_parentesco.x, C.resp_parentesco.y)
+    txt(pdf, resp.domicilio            ?? '',           C.resp_domicilio.x,  C.resp_domicilio.y)
+    txt(pdf, resp.telefono             ?? '',           C.resp_tel.x,        C.resp_tel.y)
+    txt(pdf, resp.whatsapp ?? resp.telefono ?? '',      C.resp_celular.x,    C.resp_celular.y)
+    txt(pdf, resp.email                ?? '',           C.resp_email.x,      C.resp_email.y)
   }
 
   // Tipo de servicio
@@ -81,7 +96,7 @@ function generarF1(pdf: jsPDF, s: ServicioConDeudo) {
 
 export const F1_INFO: FormularioInfo = {
   id: 'F1',
-  nombre: 'Solicitud de Afiliación',
+  nombre: 'Ficha Registro Ingreso Difuntos — Cementerio La Piedad',
   imagen: '/formularios/paz_1.png',
   generarFn: generarF1,
 }

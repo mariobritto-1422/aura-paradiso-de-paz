@@ -88,13 +88,12 @@ function _esRequerido(id: string, s: ServicioConDeudo): boolean {
   const ipsm = s.fallecido_obra_social?.toUpperCase().includes('IPS') ?? false
 
   switch (id) {
-    case 'F1': return tipo === 'Afiliación'
-    case 'F2': return tipo === 'Cremación'
-    case 'F3': return tipo === 'Cremación'
+    case 'F1': return tipo === 'Sepelio'
+    case 'F2': return tipo === 'Sepelio'
+    case 'F3': return tipo === 'Traslado'
     case 'F4': return tipo === 'Cremación'
     case 'F5': return ipsm
-    case 'F6': return tipo === 'Sepelio'
-    case 'F7': return tipo !== 'Afiliación'
+    case 'F6': return tipo !== ''
     default: return false
   }
 }

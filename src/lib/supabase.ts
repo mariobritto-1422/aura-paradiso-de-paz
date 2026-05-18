@@ -17,6 +17,25 @@ export type DeudoFichado = {
   canal_notificacion: string | null
   session_token: string
   estado: 'activo' | 'completo' | 'abandonado'
+  rol: string | null
+  fecha_nacimiento: string | null
+  domicilio: string | null
+  trabajo_ocupacion: string | null
+}
+
+export type CatalogoItem = {
+  id: string
+  nombre: string
+  activo: boolean
+  created_at: string
+}
+
+export type StockItem = {
+  id: string
+  modelo: string
+  descripcion: string | null
+  tipo: 'ataud' | 'urna'
+  disponible: boolean
 }
 
 export type DocumentacionRecibida = {
@@ -73,6 +92,7 @@ export type Servicio = {
   documentacion: DocumentacionRecibida | null
   asesor: string | null
   estado: string
+  garante_id: string | null
 }
 
 export type Usuario = {
@@ -84,4 +104,5 @@ export type Usuario = {
 
 export type ServicioConDeudo = Servicio & {
   deudo: DeudoFichado | null
+  garante: DeudoFichado | null
 }

@@ -10,7 +10,7 @@ type StockItem = { id: string; modelo: string; descripcion: string | null }
 type Props = {
   tipo: 'ataud' | 'urna'
   value: string
-  onChange: (id: string) => void
+  onChange: (id: string, modelo?: string) => void
   required?: boolean
 }
 
@@ -47,7 +47,10 @@ export function StockSelector({ tipo, value, onChange, required }: Props) {
   return (
     <select
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={e => {
+        const item = items.find(i => i.id === e.target.value)
+        onChange(e.target.value, item?.modelo)
+      }}
       required={required}
       className={INPUT_CLASS}
     >
