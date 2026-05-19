@@ -9,8 +9,25 @@ export default function ServicioDetallePage() {
   const [servicio, setServicio] = useState<ServicioConDeudo | null>(null)
   const [loading, setLoading] = useState(true)
   const [imprimiendo, setImprimiendo] = useState<string | null>(null)
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
 
   const formularios = servicio ? getFormulariosRequeridos(servicio) : []
+
+  function toggleSeleccion(fid: string) {
+    setSeleccionados(prev => {
+      const next = new Set(prev)
+      next.has(fid) ? next.delete(fid) : next.add(fid)
+      return next
+    })
+  }
+
+  function toggleTodos() {
+    if (seleccionados.size === formularios.length) {
+      setSeleccionados(new Set())
+    } else {
+      setSeleccionados(new Set(formularios.map(f => f.id)))
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -72,6 +89,14 @@ export default function ServicioDetallePage() {
     setImprimiendo(null)
   }
 
+  async function handleImprimirSeleccionados() {
+    if (!servicio || seleccionados.size === 0) return
+    setImprimiendo('SEL')
+    const subset = formularios.filter(f => seleccionados.has(f.id))
+    await imprimirTodos(servicio, subset)
+    setImprimiendo(null)
+  }
+
   if (loading) return <PageShell><div className="p-10 text-center text-gray-400">Cargando...</div></PageShell>
   if (!servicio) return <PageShell><div className="p-10 text-center text-gray-400">Servicio no encontrado.</div></PageShell>
 
@@ -114,23 +139,54 @@ export default function ServicioDetallePage() {
 
         {/* Formularios requeridos */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-[#1B3A6B] text-sm">
-              Documentos — {formularios.length} formulario{formularios.length !== 1 ? 's' : ''}
-            </h3>
-            {formularios.length > 1 && (
-              <button
-                onClick={handleImprimirTodos}
-                disabled={imprimiendo !== null}
-                className="text-xs bg-[#1B3A6B] text-white px-3 py-1.5 rounded-lg disabled:opacity-50 hover:bg-[#152e57] transition-colors"
-              >
-                {imprimiendo === 'ALL' ? 'Abriendo...' : 'Imprimir todos'}
-              </button>
-            )}
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={seleccionados.size === formularios.length && formularios.length > 0}
+                onChange={toggleTodos}
+                className="w-4 h-4 accent-[#1B3A6B] cursor-pointer"
+                title="Seleccionar todos"
+              />
+              <h3 className="font-semibold text-[#1B3A6B] text-sm">
+                Documentos a preparar — {formularios.length} formulario{formularios.length !== 1 ? 's' : ''}
+              </h3>
+            </div>
+            <div className="flex gap-2">
+              {seleccionados.size > 0 && (
+                <button
+                  onClick={handleImprimirSeleccionados}
+                  disabled={imprimiendo !== null}
+                  className="text-xs bg-[#B8956A] text-white px-3 py-1.5 rounded-lg disabled:opacity-50 hover:bg-[#a07a55] transition-colors"
+                >
+                  {imprimiendo === 'SEL' ? 'Abriendo...' : `Imprimir seleccionados (${seleccionados.size})`}
+                </button>
+              )}
+              {formularios.length > 1 && (
+                <button
+                  onClick={handleImprimirTodos}
+                  disabled={imprimiendo !== null}
+                  className="text-xs bg-[#1B3A6B] text-white px-3 py-1.5 rounded-lg disabled:opacity-50 hover:bg-[#152e57] transition-colors"
+                >
+                  {imprimiendo === 'ALL' ? 'Abriendo...' : 'Imprimir todos'}
+                </button>
+              )}
+            </div>
           </div>
           <ul className="divide-y divide-gray-50">
             {formularios.map(info => (
-              <li key={info.id} className="flex items-center gap-4 px-5 py-4">
+              <li
+                key={info.id}
+                className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${seleccionados.has(info.id) ? 'bg-[#1B3A6B]/5' : 'hover:bg-gray-50'}`}
+                onClick={() => toggleSeleccion(info.id)}
+              >
+                <input
+                  type="checkbox"
+                  checked={seleccionados.has(info.id)}
+                  onChange={() => toggleSeleccion(info.id)}
+                  onClick={e => e.stopPropagation()}
+                  className="w-4 h-4 accent-[#1B3A6B] cursor-pointer flex-shrink-0"
+                />
                 <div className="w-9 h-9 rounded-xl bg-[#1B3A6B]/10 flex items-center justify-center flex-shrink-0">
                   <span className="text-[#1B3A6B] text-xs font-bold">{info.id}</span>
                 </div>
@@ -138,7 +194,7 @@ export default function ServicioDetallePage() {
                   <p className="text-sm font-medium text-gray-800 truncate">{info.nombre}</p>
                 </div>
                 <button
-                  onClick={() => handleImprimir(info)}
+                  onClick={e => { e.stopPropagation(); handleImprimir(info) }}
                   disabled={imprimiendo !== null}
                   className="flex-shrink-0 flex items-center gap-1.5 text-xs bg-[#B8956A] text-white px-3 py-2 rounded-lg disabled:opacity-50 hover:bg-[#a07a55] transition-colors"
                 >

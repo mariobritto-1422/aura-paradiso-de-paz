@@ -12,19 +12,21 @@ export type FormularioInfo = {
 
 // ─── Helpers de dibujo ────────────────────────────────────────────────────────
 
+const Y_OFFSET = 2 // desplazamiento global vertical en mm (ajustar si hace falta)
+
 export function txt(pdf: jsPDF, valor: string | null | undefined, x: number, y: number, opts?: { size?: number; bold?: boolean }) {
   if (!valor) return
   if (opts?.bold) pdf.setFont('helvetica', 'bold')
   else pdf.setFont('helvetica', 'normal')
   pdf.setFontSize(opts?.size ?? 9)
-  pdf.text(valor, x, y)
+  pdf.text(valor, x, y + Y_OFFSET)
 }
 
 export function checkbox(pdf: jsPDF, checked: boolean, x: number, y: number) {
   if (!checked) return
   pdf.setFontSize(11)
   pdf.setFont('helvetica', 'bold')
-  pdf.text('X', x, y)
+  pdf.text('X', x, y + Y_OFFSET)
 }
 
 export function formatFecha(iso: string | null | undefined): string {

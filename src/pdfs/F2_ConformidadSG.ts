@@ -3,56 +3,53 @@ import type { ServicioConDeudo } from '../lib/supabase'
 import type { FormularioInfo } from './utils'
 import { txt, checkbox } from './utils'
 
-// ─── COORDENADAS (mm en A4 210×297) ─────────────────────────────────────────
-// F2 — El cuerpo del formulario es texto fijo hasta la sección "INDICAR CON X"
-// Solo marcamos los campos interactivos en la parte inferior
-
-// ─── COORDENADAS (mm en A4 210×297) — calibrado 2026-05-15 ──────────────────
+// ─── COORDENADAS (mm en A4 210×297) — calibrado 2026-05-19 ──────────────────
 
 const C = {
   // Velatorio SI/NO
-  cb_vel_si:    { x: 59.6, y: 157.5 },
-  cb_vel_no:    { x: 84.1, y: 157.5 },
+  cb_vel_si:    { x: 65,    y: 158.2 },
+  cb_vel_no:    { x: 90.7,  y: 158 },
 
   // Alquilado SI/NO — Propio SI/NO
-  cb_alq_si:    { x: 59.4,  y: 161.8 },
-  cb_alq_no:    { x: 84.2,  y: 161.7 },
-  cb_prop_si:   { x: 118.8, y: 161.8 },
-  cb_prop_no:   { x: 135.4, y: 161.7 },
+  cb_alq_si:    { x: 65,    y: 162.8 },
+  cb_alq_no:    { x: 90.7,  y: 163 },
+  cb_prop_si:   { x: 123.7, y: 162.5 },
+  cb_prop_no:   { x: 141.2, y: 162.5 },
 
   // Autos de acompañamiento SI/NO — Marca y tipo
-  cb_autos_si:  { x: 82,    y: 171.2 },
-  cb_autos_no:  { x: 98.6,  y: 171.2 },
-  autos_marca:  { x: 135.6, y: 170 },
+  cb_autos_si:  { x: 86.2,  y: 172 },
+  cb_autos_no:  { x: 104.2, y: 171.9 },
+  autos_marca:  { x: 138.6, y: 171.2 },
 
-  // Portacoronas SI/NO — Cantidad SI/NO
-  cb_porta_si:  { x: 55.6,  y: 175.7 },
-  cb_porta_no:  { x: 72,    y: 175.7 },
-  cb_cant_si:   { x: 104.5, y: 175.7 },
-  cb_cant_no:   { x: 121.5, y: 175.5 },
+  // Portacoronas alquilado SI/NO — Propio SI/NO
+  cb_porta_si:  { x: 59.8,  y: 176.4 },
+  cb_porta_no:  { x: 77.4,  y: 176.5 },
+  cb_cant_si:   { x: 108.2, y: 176.5 },
+  cb_cant_no:   { x: 127.2, y: 176.4 },
 
   // Cantidades / textos
-  cantidad:     { x: 48.6,  y: 180.7 },
-  funebre:      { x: 70.3,  y: 180.7 },
-  portacoronas: { x: 104.2, y: 180.6 },
-  otros_1:      { x: 172.3, y: 179.5 },
-  otros_2:      { x: 34.6,  y: 184 },
+  cantidad:     { x: 50.2,  y: 181.1 },
+  funebre:      { x: 71.7,  y: 181.2 },
+  portacoronas: { x: 105.2, y: 181.1 },
+  dos_autos:    { x: 156.6, y: 181.1 },
+  otros_1:      { x: 172,   y: 180 },
+  otros_2:      { x: 35.3,  y: 185.4 },
 
   // Inhumado
-  cementerio:   { x: 80.4,  y: 193.4 },
-  localidad:    { x: 51.7,  y: 198.1 },
-  provincia:    { x: 139.8, y: 197.7 },
+  cementerio:   { x: 83,    y: 194.2 },
+  localidad:    { x: 53.1,  y: 199.1 },
+  provincia:    { x: 143.7, y: 198.7 },
 
   // Tipo sepultura
-  cb_tierra:    { x: 44.2,  y: 203.8 },
-  cb_nicho:     { x: 78.6,  y: 203.5 },
-  cb_panteon:   { x: 115.3, y: 203.3 },
-  cb_boveda:    { x: 148,   y: 202.9 },
+  cb_tierra:    { x: 47,    y: 204.5 },
+  cb_nicho:     { x: 80,    y: 204.1 },
+  cb_panteon:   { x: 118.1, y: 204.3 },
+  cb_boveda:    { x: 149.8, y: 204.1 },
 
   // Otro beneficio SI/NO — Indicar cuál
-  cb_otro_si:   { x: 89.1,  y: 212.3 },
-  cb_otro_no:   { x: 102.9, y: 212.3 },
-  otro_cual:    { x: 54.5,  y: 216.6 },
+  cb_otro_si:   { x: 93.3,  y: 213.3 },
+  cb_otro_no:   { x: 110.1, y: 213.1 },
+  otro_cual:    { x: 57.3,  y: 217.3 },
 }
 
 function generarF2(pdf: jsPDF, s: ServicioConDeudo) {

@@ -3,48 +3,50 @@ import type { ServicioConDeudo } from '../lib/supabase'
 import type { FormularioInfo } from './utils'
 import { txt, checkbox } from './utils'
 
-// ─── COORDENADAS (mm en A4 210×297) — calibrado 2026-05-15 ──────────────────
+// ─── COORDENADAS (mm en A4 210×297) — calibrado 2026-05-19 ──────────────────
 
 const C = {
   // Fallecido
-  fall_apellido:   { x: 37.9,  y: 38.9 },
-  fall_nombres:    { x: 115.5, y: 38.5 },
-  fall_edad:       { x: 27.3,  y: 43.8 },
-  fall_dni:        { x: 65.2,  y: 43.6 },
+  fall_apellido:   { x: 41.9,  y: 39.4 },
+  fall_nombres:    { x: 118.1, y: 39.8 },
+  fall_edad:       { x: 29.7,  y: 44.9 },
+  fall_dni:        { x: 67.1,  y: 44.7 },
 
   // Responsable
-  resp_apellido:   { x: 38.3,  y: 56 },
-  resp_nombres:    { x: 125.7, y: 55.6 },
-  resp_dni:        { x: 30.8,  y: 61.6 },
-  resp_parentesco: { x: 147,   y: 61.4 },
-  resp_domicilio:  { x: 109.8, y: 67.6 },
-  resp_tel:        { x: 44.7,  y: 73.7 },
-  resp_celular:    { x: 116.4, y: 73.5 },
-  resp_email:      { x: 57.3,  y: 78.5 },
+  resp_apellido:   { x: 41.6,  y: 56.7 },
+  resp_nombres:    { x: 129.3, y: 56.7 },
+  resp_dni:        { x: 31.3,  y: 62.8 },
+  resp_parentesco: { x: 148.7, y: 62.6 },
+  resp_domicilio:  { x: 111.2, y: 68.6 },
+  resp_tel:        { x: 46.1,  y: 74.8 },
+  resp_celular:    { x: 119,   y: 74.6 },
+  resp_email:      { x: 60.1,  y: 79.5 },
 
   // Servicio
-  servicio:        { x: 48.9,  y: 103.8 },
+  servicio:        { x: 69.2,  y: 105 },
 
   // Firmas
   firma_responsable: { x: 56.8,  y: 221.4 },
   firma_empresa:     { x: 155.2, y: 221.9 },
 
   // Recepción
-  recibido_dia:  { x: 43.3,  y: 239.5 },
-  recibido_mes:  { x: 74.6,  y: 239.5 },
-  recibido_anio: { x: 123.4, y: 239.1 },
-  siendo_las:    { x: 162.2, y: 238.8 },
+  recibido_dia:  { x: 44,    y: 240.7 },
+  recibido_mes:  { x: 76.7,  y: 240.4 },
+  recibido_anio: { x: 125.1, y: 240.2 },
+  siendo_las:    { x: 163.6, y: 240.2 },
 
   // Sepultura
-  fosa:   { x: 57.8,  y: 249.9 },
-  tablon: { x: 86.7,  y: 250 },
-  sector: { x: 111.5, y: 250 },
-  nicho:  { x: 150.3, y: 250 },
+  fosa:   { x: 59.2,  y: 251.3 },
+  tablon: { x: 87.4,  y: 251.1 },
+  sector: { x: 112,   y: 250.9 },
+  nicho:  { x: 153.8, y: 250.6 },
 
   // Agente
-  agente:              { x: 53.1,  y: 261.3 },
+  agente:              { x: 55.8,  y: 262.2 },
   firma_agente:        { x: 121.3, y: 260.1 },
-  fecha_pantalla:      { x: 64.1,  y: 270.3 },
+  fecha_pantalla_dia:  { x: 66.9,  y: 272.2 },
+  fecha_pantalla_mes:  { x: 79.2,  y: 272.4 },
+  fecha_pantalla_anio: { x: 93,    y: 271.9 },
   firma_aclaracion:    { x: 169.2, y: 270.3 },
 }
 
@@ -92,6 +94,15 @@ function generarF1(pdf: jsPDF, s: ServicioConDeudo) {
   txt(pdf, dia,  C.recibido_dia.x,  C.recibido_dia.y)
   txt(pdf, mes,  C.recibido_mes.x,  C.recibido_mes.y)
   txt(pdf, anio, C.recibido_anio.x, C.recibido_anio.y)
+
+  // Asesor
+  txt(pdf, s.asesor ?? '', C.agente.x, C.agente.y)
+
+  // Fecha grabada en pantalla (= fecha del servicio)
+  const fs = s.fecha_servicio ? new Date(s.fecha_servicio) : fechaDoc
+  txt(pdf, String(fs.getDate()).padStart(2, '0'),    C.fecha_pantalla_dia.x,  C.fecha_pantalla_dia.y)
+  txt(pdf, String(fs.getMonth() + 1).padStart(2, '0'), C.fecha_pantalla_mes.x, C.fecha_pantalla_mes.y)
+  txt(pdf, String(fs.getFullYear()).slice(2),         C.fecha_pantalla_anio.x, C.fecha_pantalla_anio.y)
 }
 
 export const F1_INFO: FormularioInfo = {

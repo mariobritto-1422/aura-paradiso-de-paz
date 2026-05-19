@@ -3,65 +3,86 @@ import type { ServicioConDeudo } from '../lib/supabase'
 import type { FormularioInfo } from './utils'
 import { txt, formatFecha } from './utils'
 
-// ─── COORDENADAS calibradas (mm en A4 210×297) ────────────────────────────────
+// ─── COORDENADAS calibradas (mm en A4 210×297) — calibrado 2026-05-19 ────────
 
 const C = {
+  // Registro (TOMO / ACTA / FOLIO)
+  tomo:  { x: 154,   y: 35.5 },
+  acta:  { x: 169.2, y: 35.1 },
+  folio: { x: 187.9, y: 35.3 },
+
   // Fecha encabezado (fecha servicio)
-  fecha_dia:       { x: 62.2,  y: 47.6 },
-  fecha_mes:       { x: 71.8,  y: 47.6 },
-  fecha_anio:      { x: 83,    y: 47.4 },
+  fecha_dia:       { x: 63.1,  y: 48.1 },
+  fecha_mes:       { x: 72.7,  y: 48.4 },
+  fecha_anio:      { x: 83.7,  y: 48.1 },
 
   // Datos del fallecido
-  fall_nombre:       { x: 47.9,  y: 52.7 },
-  fall_dni:          { x: 156.6, y: 52.3 },
-  fall_fecha_nac:    { x: 53.5,  y: 57.6 },
-  fall_ciudad:       { x: 28,    y: 62.8 },
-  fall_nacionalidad: { x: 101,   y: 63 },
-  fall_estado_civil: { x: 165,   y: 62.8 },
-  fall_religion:     { x: 28.5,  y: 68.7 },
-  fall_profesion:    { x: 136.5, y: 68.2 },
-  fall_obra_social:  { x: 30.1,  y: 74.2 },
-  fall_beneficio:    { x: 118.8, y: 73.8 },
-  fall_lugar_deceso: { x: 50.3,  y: 79.6 },
-  fall_dec_dia:      { x: 136.1, y: 79.5 },
-  fall_dec_mes:      { x: 148.4, y: 79.2 },
-  fall_dec_anio:     { x: 160.1, y: 79.4 },
-  fall_dec_hora:     { x: 182.6, y: 79.2 },
+  fall_nombre:       { x: 50.2,  y: 53.5 },
+  fall_dni:          { x: 159.6, y: 53.5 },
+  fall_fecha_nac:    { x: 55.2,  y: 58.9 },
+  fall_domicilio:    { x: 105.6, y: 58.9 },
+  fall_ciudad:       { x: 29.5,  y: 64.3 },
+  fall_nacionalidad: { x: 101.9, y: 64 },
+  fall_estado_civil: { x: 166.6, y: 64 },
+  fall_religion:     { x: 32.2,  y: 69.6 },
+  fall_profesion:    { x: 139.5, y: 69.6 },
+  fall_obra_social:  { x: 32,    y: 75 },
+  fall_beneficio:    { x: 126.9, y: 74.6 },
+  fall_lugar_deceso: { x: 53.1,  y: 80.6 },
+  fall_dec_dia:      { x: 137.5, y: 80.4 },
+  fall_dec_mes:      { x: 148.7, y: 80.2 },
+  fall_dec_anio:     { x: 159.6, y: 80.6 },
+  fall_dec_hora:     { x: 184.9, y: 80.4 },
 
   // Características del servicio
-  ataud_tipo:      { x: 23.8,  y: 94.9 },
-  ataud_medida:    { x: 98.6,  y: 94.6 },
-  cb_tierra:       { x: 128.8, y: 95.5 },
-  cb_nicho:        { x: 159,   y: 95.6 },
-  cb_cremacion:    { x: 197.3, y: 95.3 },
+  ataud_tipo:      { x: 26.7,  y: 95.6 },
+  ataud_medida:    { x: 100.7, y: 95.6 },
+  cb_tierra:       { x: 128.6, y: 97 },
+  cb_nicho:        { x: 159.4, y: 96.9 },
+  cb_cremacion:    { x: 197.8, y: 96.3 },
 
-  cb_sala_eterno:  { x: 57.5,  y: 101.2 },
-  cb_sala_paraiso: { x: 121.6, y: 101.2 },
-  cb_sala_fenix:   { x: 197.5, y: 101 },
+  cb_sala_eterno:  { x: 57.8,  y: 103 },
+  cb_sala_paraiso: { x: 121.6, y: 102.6 },
+  cb_sala_fenix:   { x: 197.3, y: 102.3 },
 
-  capilla_ardiente: { x: 46,    y: 107.2 },
-  hora_inicio:      { x: 164.3, y: 105.6 },
+  capilla_ardiente: { x: 45.8,  y: 108.6 },
+  hora_inicio:      { x: 168.5, y: 107.2 },
 
-  cb_tanatostetica: { x: 44.4,  y: 118.4 },
-  cb_tanatopraxia:  { x: 84.9,  y: 118.2 },
+  cb_tanatostetica: { x: 44.4,  y: 119.6 },
+  cb_tanatopraxia:  { x: 85.3,  y: 119.4 },
 
-  cb_furgon:        { x: 52.3,  y: 131.3 },
-  cb_coche_escolta: { x: 190.7, y: 130.8 },
+  cb_placa:         { x: 26.6,  y: 126 },
+  cb_cruz:          { x: 69.6,  y: 125.9 },
+  cb_urna_craft:    { x: 129.7, y: 125.2 },
+  cb_urna:          { x: 155.4, y: 123.8 },
 
-  destino_final:    { x: 38.6,  y: 139.5 },
-  serv_fecha_dia:   { x: 147.7, y: 139.3 },
-  serv_fecha_mes:   { x: 156.1, y: 139.3 },
-  serv_fecha_anio:  { x: 164.1, y: 139.5 },
-  serv_hora:        { x: 184.7, y: 139.3 },
+  cb_furgon:        { x: 52.4,  y: 132.5 },
+  cb_carroza:       { x: 118.1, y: 132.3 },
+  cb_coche_escolta: { x: 190.7, y: 132 },
 
-  // Documentación — ORIGINAL (x≈83) y COPIA (x≈102)
-  doc_acta_orig:   { x: 83.4,  y: 176.7 }, doc_acta_cop:  { x: 102.8, y: 176.6 },
-  doc_lib_orig:    { x: 83.5,  y: 180.9 }, doc_lib_cop:   { x: 102.9, y: 181.1 },
-  doc_rec_orig:    { x: 83.4,  y: 185.7 }, doc_rec_cop:   { x: 102.8, y: 185.7 },
-  doc_fac_orig:    { x: 83.5,  y: 189.7 }, doc_fac_cop:   { x: 102.8, y: 189.7 },
-  doc_cen_orig:    { x: 83.5,  y: 194.1 }, doc_cen_cop:   { x: 102.8, y: 194.1 },
-  doc_car_orig:    { x: 83.9,  y: 198.8 }, doc_car_cop:   { x: 102.8, y: 198.6 },
-  doc_otr_orig:    { x: 83.5,  y: 203 },   doc_otr_cop:   { x: 102.8, y: 202.8 },
+  destino_final:    { x: 41.1,  y: 141.1 },
+  serv_fecha_dia:   { x: 149.3, y: 140.7 },
+  serv_fecha_mes:   { x: 155.9, y: 140.9 },
+  serv_fecha_anio:  { x: 163.4, y: 140.7 },
+  serv_hora:        { x: 187.2, y: 140.4 },
+
+  traslado:         { x: 38.8,  y: 146.8 },
+  traslado_hasta:   { x: 112.9, y: 146.7 },
+  traslado_km:      { x: 185.4, y: 146.3 },
+
+  importe:          { x: 32.7,  y: 152.4 },
+  entrega:          { x: 107.5, y: 152.3 },
+  saldo:            { x: 163.4, y: 152.3 },
+  forma_pago:       { x: 73.4,  y: 158.2 },
+
+  // Documentación — ORIGINAL y COPIA
+  doc_acta_orig:   { x: 83.5,  y: 177.3 }, doc_acta_cop:  { x: 102.9, y: 177.1 },
+  doc_lib_orig:    { x: 83.4,  y: 181.6 }, doc_lib_cop:   { x: 102.8, y: 181.3 },
+  doc_rec_orig:    { x: 83.4,  y: 186 },   doc_rec_cop:   { x: 102.8, y: 186 },
+  doc_fac_orig:    { x: 83.4,  y: 189.9 }, doc_fac_cop:   { x: 102.8, y: 189.9 },
+  doc_cen_orig:    { x: 83.7,  y: 194.6 }, doc_cen_cop:   { x: 102.8, y: 194.4 },
+  doc_car_orig:    { x: 83.7,  y: 199.3 }, doc_car_cop:   { x: 102.8, y: 198.9 },
+  doc_otr_orig:    { x: 83.7,  y: 203.1 }, doc_otr_cop:   { x: 102.8, y: 203.3 },
 
   // Fecha y firma (columna derecha)
   firma_ciudad:    { x: 147.3, y: 171 },
@@ -71,17 +92,23 @@ const C = {
   contacto:        { x: 144.2, y: 185.1 },
 
   // Asesor
-  asesor:          { x: 53.7,  y: 212.6 },
+  asesor:          { x: 57.3,  y: 213.3 },
 
   // Solicitante
-  sol_nombre:      { x: 49.1,  y: 224.9 },
-  sol_dni:         { x: 25.3,  y: 230.3 },
-  sol_cel:         { x: 149.6, y: 229.4 },
+  sol_nombre:      { x: 49.6,  y: 225.9 },
+  sol_dni:         { x: 26.9,  y: 231.1 },
+  sol_fecha_nac:   { x: 104.2, y: 231 },
+  sol_cel:         { x: 151.9, y: 230.8 },
+  sol_domicilio:   { x: 35.7,  y: 236.6 },
+  sol_trabajo:     { x: 40,    y: 241.6 },
 
-  // Garante (coordenadas aproximadas — calibrar con /calibrar)
-  gar_nombre:      { x: 49.1,  y: 242.0 },
-  gar_dni:         { x: 25.3,  y: 247.5 },
-  gar_cel:         { x: 149.6, y: 247.5 },
+  // Garante
+  gar_nombre:      { x: 51.9,  y: 260.2 },
+  gar_dni:         { x: 28.3,  y: 265.1 },
+  gar_fecha_nac:   { x: 104.7, y: 264.7 },
+  gar_cel:         { x: 154.5, y: 264.4 },
+  gar_domicilio:   { x: 39.8,  y: 270.5 },
+  gar_trabajo:     { x: 38.8,  y: 275.9 },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -163,7 +190,8 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, s.tanatostetica,    C.cb_tanatostetica.x, C.cb_tanatostetica.y)
   X(pdf, s.tanatopraxia,     C.cb_tanatopraxia.x,  C.cb_tanatopraxia.y)
   X(pdf, s.furgon_sanitario, C.cb_furgon.x,        C.cb_furgon.y)
-  X(pdf, s.coche_acompanamiento || s.coche_funebre, C.cb_coche_escolta.x, C.cb_coche_escolta.y)
+  X(pdf, s.coche_funebre,    C.cb_carroza.x,       C.cb_carroza.y)
+  X(pdf, s.coche_escolta,    C.cb_coche_escolta.x, C.cb_coche_escolta.y)
 
   // — Destino y fecha del servicio —
   txt(pdf, s.destino_final ?? '', C.destino_final.x,  C.destino_final.y)
@@ -171,6 +199,9 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   txt(pdf, fs.mes,                C.serv_fecha_mes.x, C.serv_fecha_mes.y)
   txt(pdf, fs.anio,               C.serv_fecha_anio.x, C.serv_fecha_anio.y)
   txt(pdf, fs.hora,               C.serv_hora.x,      C.serv_hora.y)
+
+  // — Importe —
+  if (s.importe_servicio) txt(pdf, String(s.importe_servicio), C.importe.x, C.importe.y)
 
   // — Documentación —
   X(pdf, doc?.acta_defuncion?.original,    C.doc_acta_orig.x, C.doc_acta_orig.y)
@@ -197,15 +228,21 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   txt(pdf, s.asesor ?? '', C.asesor.x, C.asesor.y)
 
   // — Solicitante —
-  txt(pdf, s.deudo?.nombre ?? '',                        C.sol_nombre.x, C.sol_nombre.y)
-  txt(pdf, s.deudo?.dni ?? '',                           C.sol_dni.x,    C.sol_dni.y)
-  txt(pdf, s.deudo?.whatsapp ?? s.deudo?.telefono ?? '', C.sol_cel.x,    C.sol_cel.y)
+  txt(pdf, s.deudo?.nombre ?? '',                        C.sol_nombre.x,    C.sol_nombre.y)
+  txt(pdf, s.deudo?.dni ?? '',                           C.sol_dni.x,       C.sol_dni.y)
+  txt(pdf, formatFecha(s.deudo?.fecha_nacimiento),       C.sol_fecha_nac.x, C.sol_fecha_nac.y)
+  txt(pdf, s.deudo?.whatsapp ?? s.deudo?.telefono ?? '', C.sol_cel.x,       C.sol_cel.y)
+  txt(pdf, s.deudo?.domicilio ?? '',                     C.sol_domicilio.x, C.sol_domicilio.y)
+  txt(pdf, s.deudo?.trabajo_ocupacion ?? '',             C.sol_trabajo.x,   C.sol_trabajo.y)
 
   // — Garante —
   if (s.garante) {
-    txt(pdf, s.garante.nombre ?? '',                           C.gar_nombre.x, C.gar_nombre.y)
-    txt(pdf, s.garante.dni ?? '',                              C.gar_dni.x,    C.gar_dni.y)
-    txt(pdf, s.garante.whatsapp ?? s.garante.telefono ?? '',   C.gar_cel.x,    C.gar_cel.y)
+    txt(pdf, s.garante.nombre ?? '',                           C.gar_nombre.x,    C.gar_nombre.y)
+    txt(pdf, s.garante.dni ?? '',                              C.gar_dni.x,       C.gar_dni.y)
+    txt(pdf, formatFecha(s.garante.fecha_nacimiento),          C.gar_fecha_nac.x, C.gar_fecha_nac.y)
+    txt(pdf, s.garante.whatsapp ?? s.garante.telefono ?? '',   C.gar_cel.x,       C.gar_cel.y)
+    txt(pdf, s.garante.domicilio ?? '',                        C.gar_domicilio.x, C.gar_domicilio.y)
+    txt(pdf, s.garante.trabajo_ocupacion ?? '',                C.gar_trabajo.x,   C.gar_trabajo.y)
   }
 }
 
