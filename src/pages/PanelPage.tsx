@@ -136,6 +136,8 @@ export default function PanelPage() {
   const [blockedMsg, setBlockedMsg] = useState<string | null>(null)
   const [showLimpiarModal, setShowLimpiarModal] = useState(false)
   const [limpiando, setLimpiando] = useState(false)
+  const [deleteSessionTarget, setDeleteSessionTarget] = useState<DeudoFichado | null>(null)
+  const [deletingSession, setDeletingSession] = useState(false)
 
   useEffect(() => {
     loadSessions()
@@ -230,6 +232,15 @@ export default function PanelPage() {
     setServicios(prev => prev.filter(s => s.id !== deleteTarget.id))
     setDeleteTarget(null)
     setDeleting(false)
+  }
+
+  async function confirmDeleteSession() {
+    if (!deleteSessionTarget) return
+    setDeletingSession(true)
+    await supabase.from('deudos_fichados').delete().eq('id', deleteSessionTarget.id)
+    setSessions(prev => prev.filter(s => s.id !== deleteSessionTarget.id))
+    setDeleteSessionTarget(null)
+    setDeletingSession(false)
   }
 
   async function confirmarLimpiar() {
@@ -452,6 +463,7 @@ export default function PanelPage() {
                       <th className="px-4 py-3 font-medium">Relación</th>
                       <th className="px-4 py-3 font-medium">Canal</th>
                       <th className="px-4 py-3 font-medium">Hora</th>
+                      {sessionUser?.rol === 'Administrador' && <th className="px-4 py-3 font-medium"></th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -472,6 +484,16 @@ export default function PanelPage() {
                             hour: '2-digit', minute: '2-digit',
                           })}
                         </td>
+                        {sessionUser?.rol === 'Administrador' && (
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => setDeleteSessionTarget(s)}
+                              className="text-xs text-red-400 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                            >
+                              Borrar
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -513,6 +535,34 @@ export default function PanelPage() {
       )}
 
       {blockedMsg && <BlockedModal message={blockedMsg} onClose={() => setBlockedMsg(null)} />}
+
+      {deleteSessionTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-center font-semibold text-gray-800 mb-1">Eliminar sesión</h3>
+            <p className="text-center text-sm text-gray-500 mb-1">
+              <span className="font-bold text-[#1B3A6B]">{deleteSessionTarget.nombre || 'Sin nombre'}</span>
+              {deleteSessionTarget.dni ? ` — DNI ${deleteSessionTarget.dni}` : ''}
+            </p>
+            <p className="text-center text-xs text-red-400 mb-6">Esta acción no se puede deshacer.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteSessionTarget(null)} disabled={deletingSession}
+                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm disabled:opacity-60">
+                Cancelar
+              </button>
+              <button onClick={confirmDeleteSession} disabled={deletingSession}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-60">
+                {deletingSession ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLimpiarModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
