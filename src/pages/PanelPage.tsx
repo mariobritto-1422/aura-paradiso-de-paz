@@ -134,6 +134,8 @@ export default function PanelPage() {
   const [deleteTarget, setDeleteTarget] = useState<Servicio | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [blockedMsg, setBlockedMsg] = useState<string | null>(null)
+  const [showLimpiarModal, setShowLimpiarModal] = useState(false)
+  const [limpiando, setLimpiando] = useState(false)
 
   useEffect(() => {
     loadSessions()
@@ -230,6 +232,18 @@ export default function PanelPage() {
     setDeleting(false)
   }
 
+  async function confirmarLimpiar() {
+    setLimpiando(true)
+    await supabase.from('comisiones').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    await supabase.from('servicios').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    await supabase.from('deudos_fichados').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    setSessions([])
+    setServicios([])
+    setComisiones([])
+    setShowLimpiarModal(false)
+    setLimpiando(false)
+  }
+
   const activos = sessions.filter(s => s.estado === 'activo').length
   const completos = sessions.filter(s => s.estado === 'completo').length
   const abandonados = sessions.filter(s => s.estado === 'abandonado').length
@@ -261,7 +275,7 @@ export default function PanelPage() {
             <p className="text-[#B8956A] text-xs">Sesiones en tiempo real</p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => navigate('/alta-servicio')}
             className="text-xs bg-[#B8956A] text-white px-3 py-1.5 rounded-lg hover:bg-[#a07a55] transition-colors font-medium"
@@ -280,6 +294,14 @@ export default function PanelPage() {
           >
             Actualizar
           </button>
+          {sessionUser?.rol === 'Administrador' && (
+            <button
+              onClick={() => setShowLimpiarModal(true)}
+              className="text-xs text-red-300 border border-red-300/40 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors"
+            >
+              Limpiar pruebas
+            </button>
+          )}
         </div>
       </div>
 
@@ -491,6 +513,33 @@ export default function PanelPage() {
       )}
 
       {blockedMsg && <BlockedModal message={blockedMsg} onClose={() => setBlockedMsg(null)} />}
+
+      {showLimpiarModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <h3 className="text-center font-semibold text-gray-800 mb-1">Limpiar datos de prueba</h3>
+            <p className="text-center text-sm text-gray-500 mb-1">
+              Se borrarán <span className="font-bold text-red-500">todos</span> los servicios, sesiones y comisiones.
+            </p>
+            <p className="text-center text-xs text-red-400 mb-6">Solo hacer esto en entorno de prueba. No se puede deshacer.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowLimpiarModal(false)} disabled={limpiando}
+                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm disabled:opacity-60">
+                Cancelar
+              </button>
+              <button onClick={confirmarLimpiar} disabled={limpiando}
+                className="flex-1 py-3 rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-60">
+                {limpiando ? 'Limpiando...' : 'Sí, borrar todo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
