@@ -57,7 +57,7 @@ type ServicioForm = {
   sala: string; sala_domicilio: string
   capilla_ardiente: string; tipo_entierro: string
   preparador: string
-  furgon_sanitario: boolean; coche_funebre: boolean
+  furgon_sanitario: boolean; coche_funebre: boolean; coche_funebre_tipo: string
   coche_porta_corona: boolean; coche_acompanamiento: boolean; refrigerador: boolean
   tanatostetica: boolean; tanatopraxia: boolean
   destino_final: string; fecha_servicio: string
@@ -88,7 +88,7 @@ const EMPTY: ServicioForm = {
   sala: '', sala_domicilio: '',
   capilla_ardiente: '', tipo_entierro: '',
   preparador: '',
-  furgon_sanitario: false, coche_funebre: false,
+  furgon_sanitario: false, coche_funebre: false, coche_funebre_tipo: '',
   coche_porta_corona: false, coche_acompanamiento: false, refrigerador: false,
   tanatostetica: false, tanatopraxia: false,
   destino_final: '', fecha_servicio: '',
@@ -520,6 +520,7 @@ export default function AltaServicioPage() {
       preparador:                  form.preparador || null,
       furgon_sanitario:            form.furgon_sanitario,
       coche_funebre:               form.coche_funebre,
+      coche_funebre_tipo:          form.coche_funebre ? (form.coche_funebre_tipo || null) : null,
       coche_porta_corona:          form.coche_porta_corona,
       coche_acompanamiento:        form.coche_acompanamiento,
       refrigerador:                form.refrigerador,
@@ -871,7 +872,23 @@ export default function AltaServicioPage() {
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Vehículos / Recursos</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <CheckItem label="Furgón Sanitario" checked={form.furgon_sanitario} onChange={v => set('furgon_sanitario', v)} />
-                <CheckItem label="Carroza Fúnebre" checked={form.coche_funebre} onChange={v => set('coche_funebre', v)} />
+                <div className="space-y-1">
+                  <CheckItem label="Carroza Fúnebre" checked={form.coche_funebre}
+                    onChange={v => { set('coche_funebre', v); if (!v) set('coche_funebre_tipo', '') }} />
+                  {form.coche_funebre && (
+                    <div className="flex gap-4 pl-7 pt-1">
+                      {['Americana', 'Europea'].map(tipo => (
+                        <label key={tipo} className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                          <input type="radio" name="coche_funebre_tipo" value={tipo}
+                            checked={form.coche_funebre_tipo === tipo}
+                            onChange={() => set('coche_funebre_tipo', tipo)}
+                            className="accent-[#1B3A6B]" />
+                          {tipo}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <CheckItem label="Coche Porta Corona" checked={form.coche_porta_corona} onChange={v => set('coche_porta_corona', v)} />
                 <CheckItem label="Coche Escolta" checked={form.coche_acompanamiento} onChange={v => set('coche_acompanamiento', v)} />
                 <CheckItem label="Refrigerio" checked={form.refrigerador} onChange={v => set('refrigerador', v)} />

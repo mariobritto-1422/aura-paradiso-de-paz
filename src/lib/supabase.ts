@@ -81,6 +81,7 @@ export type Servicio = {
   coche_escolta_cantidad: number
   furgon_sanitario: boolean
   coche_funebre: boolean
+  coche_funebre_tipo: string | null
   coche_porta_corona: boolean
   coche_acompanamiento: boolean
   refrigerador: boolean

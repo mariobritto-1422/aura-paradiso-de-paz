@@ -191,7 +191,8 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, s.tanatostetica,    C.cb_tanatostetica.x, C.cb_tanatostetica.y)
   X(pdf, s.tanatopraxia,     C.cb_tanatopraxia.x,  C.cb_tanatopraxia.y)
   X(pdf, s.furgon_sanitario, C.cb_furgon.x,        C.cb_furgon.y)
-  X(pdf, s.coche_funebre,    C.cb_carroza_americana.x, C.cb_carroza_americana.y)
+  X(pdf, s.coche_funebre && s.coche_funebre_tipo !== 'Europea', C.cb_carroza_americana.x, C.cb_carroza_americana.y)
+  X(pdf, s.coche_funebre && s.coche_funebre_tipo === 'Europea', C.cb_carroza_europea.x,   C.cb_carroza_europea.y)
   X(pdf, s.coche_escolta,    C.cb_coche_escolta.x, C.cb_coche_escolta.y)
 
   // — Destino y fecha del servicio —
