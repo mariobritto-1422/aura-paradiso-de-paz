@@ -12,7 +12,7 @@ export type FormularioInfo = {
 
 // ─── Helpers de dibujo ────────────────────────────────────────────────────────
 
-const Y_OFFSET = 2 // desplazamiento global vertical en mm (ajustar si hace falta)
+const Y_OFFSET = 0.5 // desplazamiento global vertical en mm (ajustar si hace falta)
 
 export function txt(pdf: jsPDF, valor: string | null | undefined, x: number, y: number, opts?: { size?: number; bold?: boolean }) {
   if (!valor) return
