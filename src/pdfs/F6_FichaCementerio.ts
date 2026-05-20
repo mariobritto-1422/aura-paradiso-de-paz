@@ -56,9 +56,10 @@ const C = {
   cb_urna_craft:    { x: 129.7, y: 125.2 },
   cb_urna:          { x: 155.4, y: 123.8 },
 
-  cb_furgon:        { x: 52.4,  y: 132.5 },
-  cb_carroza:       { x: 118.1, y: 132.3 },
-  cb_coche_escolta: { x: 190.7, y: 132 },
+  cb_furgon:            { x: 52.4,  y: 132.5 },
+  cb_carroza_americana: { x: 118.1, y: 132.2 },
+  cb_carroza_europea:   { x: 134.4, y: 132 },
+  cb_coche_escolta:     { x: 190.7, y: 132 },
 
   destino_final:    { x: 41.1,  y: 141.1 },
   serv_fecha_dia:   { x: 149.3, y: 140.7 },
@@ -190,7 +191,7 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, s.tanatostetica,    C.cb_tanatostetica.x, C.cb_tanatostetica.y)
   X(pdf, s.tanatopraxia,     C.cb_tanatopraxia.x,  C.cb_tanatopraxia.y)
   X(pdf, s.furgon_sanitario, C.cb_furgon.x,        C.cb_furgon.y)
-  X(pdf, s.coche_funebre,    C.cb_carroza.x,       C.cb_carroza.y)
+  X(pdf, s.coche_funebre,    C.cb_carroza_americana.x, C.cb_carroza_americana.y)
   X(pdf, s.coche_escolta,    C.cb_coche_escolta.x, C.cb_coche_escolta.y)
 
   // — Destino y fecha del servicio —
