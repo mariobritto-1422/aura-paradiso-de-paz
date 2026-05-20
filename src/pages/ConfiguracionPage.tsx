@@ -282,9 +282,10 @@ function AsesorTab() {
 
 function ComisionesTab() {
   const [cfg, setCfg] = useState<ConfiguracionComisiones | null>(null)
-  const [base, setBase] = useState('')
-  const [porc, setPorc] = useState('')
-  const [montoFijo, setMontoFijo] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [base, setBase] = useState('500000')
+  const [porc, setPorc] = useState('3')
+  const [montoFijo, setMontoFijo] = useState('15000')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -295,29 +296,43 @@ function ComisionesTab() {
         setCfg(d)
         setBase(String(d.base_minima))
         setPorc(String(d.porcentaje))
-        setMontoFijo(String(d.monto_fijo_obra_social))
+        setMontoFijo(String(d.monto_fijo_obra_social ?? 15000))
       }
+      setLoading(false)
     })
   }, [])
 
   async function save() {
-    if (!cfg) return
     setSaving(true)
-    await supabase
-      .from('configuracion_comisiones')
-      .update({
-        base_minima: parseFloat(base),
-        porcentaje: parseFloat(porc),
-        monto_fijo_obra_social: parseFloat(montoFijo) || 0,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', cfg.id)
+    if (cfg) {
+      await supabase
+        .from('configuracion_comisiones')
+        .update({
+          base_minima: parseFloat(base),
+          porcentaje: parseFloat(porc),
+          monto_fijo_obra_social: parseFloat(montoFijo) || 0,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', cfg.id)
+    } else {
+      // No había fila — crear la primera
+      const { data } = await supabase
+        .from('configuracion_comisiones')
+        .insert({
+          base_minima: parseFloat(base),
+          porcentaje: parseFloat(porc),
+          monto_fijo_obra_social: parseFloat(montoFijo) || 0,
+        })
+        .select()
+        .single()
+      if (data) setCfg(data as ConfiguracionComisiones)
+    }
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  if (!cfg) return <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">Cargando...</div>
+  if (loading) return <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">Cargando...</div>
 
   const baseNum = parseFloat(base) || 0
   const porcNum = parseFloat(porc) || 0
