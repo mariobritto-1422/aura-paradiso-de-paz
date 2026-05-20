@@ -284,15 +284,18 @@ function ComisionesTab() {
   const [cfg, setCfg] = useState<ConfiguracionComisiones | null>(null)
   const [base, setBase] = useState('')
   const [porc, setPorc] = useState('')
+  const [montoFijo, setMontoFijo] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     supabase.from('configuracion_comisiones').select('*').single().then(({ data }) => {
       if (data) {
-        setCfg(data as ConfiguracionComisiones)
-        setBase(String((data as ConfiguracionComisiones).base_minima))
-        setPorc(String((data as ConfiguracionComisiones).porcentaje))
+        const d = data as ConfiguracionComisiones
+        setCfg(d)
+        setBase(String(d.base_minima))
+        setPorc(String(d.porcentaje))
+        setMontoFijo(String(d.monto_fijo_obra_social))
       }
     })
   }, [])
@@ -302,7 +305,12 @@ function ComisionesTab() {
     setSaving(true)
     await supabase
       .from('configuracion_comisiones')
-      .update({ base_minima: parseFloat(base), porcentaje: parseFloat(porc), updated_at: new Date().toISOString() })
+      .update({
+        base_minima: parseFloat(base),
+        porcentaje: parseFloat(porc),
+        monto_fijo_obra_social: parseFloat(montoFijo) || 0,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', cfg.id)
     setSaving(false)
     setSaved(true)
@@ -311,41 +319,59 @@ function ComisionesTab() {
 
   if (!cfg) return <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">Cargando...</div>
 
-  const preview = parseFloat(base) > 0 && parseFloat(porc) > 0
-    ? Math.round(parseFloat(base) * parseFloat(porc) / 100)
-    : 0
+  const baseNum = parseFloat(base) || 0
+  const porcNum = parseFloat(porc) || 0
+  const excedEjemplo = 350000
+  const previewParticular = porcNum > 0 ? Math.round(excedEjemplo * porcNum / 100) : 0
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <CardHeader title="Configuración de comisiones" sub="Parámetros aplicados al calcular comisiones de asesores." />
-      <div className="px-5 py-6 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
-              Base mínima ($)
-            </label>
-            <input type="number" min={0} step={10000} value={base}
-              onChange={e => setBase(e.target.value)}
-              className={`w-full ${IC}`} placeholder="500000" />
-            <p className="text-xs text-gray-400 mt-1">Servicios por debajo no generan comisión.</p>
+      <CardHeader title="Configuración de comisiones" sub="Parámetros para comisiones de asesores." />
+      <div className="px-5 py-6 space-y-6">
+
+        {/* Particular */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Particular</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
+                Base mínima ($)
+              </label>
+              <input type="number" min={0} step={10000} value={base}
+                onChange={e => setBase(e.target.value)}
+                className={`w-full ${IC}`} placeholder="500000" />
+              <p className="text-xs text-gray-400 mt-1">Servicios por debajo no generan comisión.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
+                Porcentaje (%)
+              </label>
+              <input type="number" min={0} step={0.5} value={porc}
+                onChange={e => setPorc(e.target.value)}
+                className={`w-full ${IC}`} placeholder="3" />
+              <p className="text-xs text-gray-400 mt-1">Sobre el excedente respecto a la base.</p>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
-              Porcentaje (%)
-            </label>
-            <input type="number" min={0} step={0.5} value={porc}
-              onChange={e => setPorc(e.target.value)}
-              className={`w-full ${IC}`} placeholder="3" />
-            <p className="text-xs text-gray-400 mt-1">Porcentaje sobre el importe total.</p>
-          </div>
+          {previewParticular > 0 && (
+            <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700">
+              Ejemplo: base ${baseNum.toLocaleString('es-AR')} + excedente ${excedEjemplo.toLocaleString('es-AR')} → comisión ${previewParticular.toLocaleString('es-AR')} ({porc}%)
+            </div>
+          )}
         </div>
 
-        {preview > 0 && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700">
-            Ejemplo: servicio de ${parseFloat(base).toLocaleString('es-AR')} genera comisión de
-            ${preview.toLocaleString('es-AR')} ({porc}%)
+        {/* Obra Social */}
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Obra Social</p>
+          <div className="max-w-xs">
+            <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
+              Monto fijo ($)
+            </label>
+            <input type="number" min={0} step={1000} value={montoFijo}
+              onChange={e => setMontoFijo(e.target.value)}
+              className={`w-full ${IC}`} placeholder="15000" />
+            <p className="text-xs text-gray-400 mt-1">Monto fijo por servicio de obra social. No depende del importe.</p>
           </div>
-        )}
+        </div>
 
         <button onClick={save} disabled={saving}
           className="bg-[#1B3A6B] text-white px-6 py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 hover:bg-[#152e57] transition-colors">

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
 import { supabase, type DeudoFichado, type Servicio, type Comision } from '../lib/supabase'
 
-const FORM_URL = `${window.location.origin}/`
+const FORM_URL_SOL = `${window.location.origin}/?rol=solicitante`
+const FORM_URL_GAR = `${window.location.origin}/?rol=garante`
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 
@@ -127,7 +128,8 @@ export default function PanelPage() {
   const [comisiones, setComisiones] = useState<Comision[]>([])
   const [loading, setLoading] = useState(true)
   const [asesorFiltro, setAsesorFiltro] = useState('')
-  const qrRef = useRef<HTMLDivElement>(null)
+  const qrSolRef = useRef<HTMLDivElement>(null)
+  const qrGarRef = useRef<HTMLDivElement>(null)
 
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(getStoredSession)
   const [showSessionModal, setShowSessionModal] = useState(!getStoredSession())
@@ -194,15 +196,15 @@ export default function PanelPage() {
     if (data) setComisiones(data as Comision[])
   }
 
-  function downloadQR() {
-    const svg = qrRef.current?.querySelector('svg')
+  function downloadQR(ref: React.RefObject<HTMLDivElement | null>, filename: string) {
+    const svg = ref.current?.querySelector('svg')
     if (!svg) return
     const svgData = new XMLSerializer().serializeToString(svg)
     const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'QR-Paraiso-de-Paz.svg'
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -259,10 +261,11 @@ export default function PanelPage() {
   const completos = sessions.filter(s => s.estado === 'completo').length
   const abandonados = sessions.filter(s => s.estado === 'abandonado').length
 
+  const [tipoFiltro, setTipoFiltro] = useState('')
   const asesoresUnicos = [...new Set(comisiones.map(c => c.asesor_nombre))].sort()
-  const comisionesFiltradas = asesorFiltro
-    ? comisiones.filter(c => c.asesor_nombre === asesorFiltro)
-    : comisiones
+  const comisionesFiltradas = comisiones
+    .filter(c => !asesorFiltro || c.asesor_nombre === asesorFiltro)
+    .filter(c => !tipoFiltro || c.tipo === tipoFiltro)
   const totalMes = comisionesFiltradas.reduce((s, c) => s + c.monto_comision, 0)
 
   return (
@@ -394,11 +397,19 @@ export default function PanelPage() {
                 Total: ${totalMes.toLocaleString('es-AR')}
               </p>
             </div>
-            <select value={asesorFiltro} onChange={e => setAsesorFiltro(e.target.value)}
-              className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
-              <option value="">Todos los asesores</option>
-              {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <div className="flex gap-2 flex-wrap">
+              <select value={asesorFiltro} onChange={e => setAsesorFiltro(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
+                <option value="">Todos los asesores</option>
+                {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
+                <option value="">Todos los tipos</option>
+                <option value="particular">Particular</option>
+                <option value="obra_social">Obra Social</option>
+              </select>
+            </div>
           </div>
           {comisiones.length === 0 ? (
             <div className="p-8 text-center text-gray-400 text-sm">Sin comisiones registradas este mes.</div>
@@ -411,6 +422,7 @@ export default function PanelPage() {
                   <tr className="text-left text-gray-400 text-xs bg-gray-50">
                     <th className="px-4 py-3 font-medium">Fecha</th>
                     <th className="px-4 py-3 font-medium">Asesor</th>
+                    <th className="px-4 py-3 font-medium">Tipo</th>
                     <th className="px-4 py-3 font-medium">Importe</th>
                     <th className="px-4 py-3 font-medium">Comisión</th>
                     <th className="px-4 py-3 font-medium">Estado</th>
@@ -423,7 +435,16 @@ export default function PanelPage() {
                         {new Date(c.fecha_servicio).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">{c.asesor_nombre}</td>
-                      <td className="px-4 py-3 text-gray-500">${c.importe_servicio.toLocaleString('es-AR')}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${c.tipo === 'obra_social' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {c.tipo === 'obra_social' ? 'Obra Social' : 'Particular'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {c.tipo === 'obra_social' && sessionUser?.rol !== 'Administrador'
+                          ? '—'
+                          : c.importe_servicio != null ? `$${c.importe_servicio.toLocaleString('es-AR')}` : '—'}
+                      </td>
                       <td className="px-4 py-3 font-semibold text-emerald-700">${c.monto_comision.toLocaleString('es-AR')}</td>
                       <td className="px-4 py-3">
                         {c.notificado
@@ -502,22 +523,46 @@ export default function PanelPage() {
             )}
           </div>
 
-          {/* QR */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col items-center gap-4">
-            <h2 className="font-semibold text-[#1B3A6B] text-sm text-center">Código QR del formulario</h2>
-            <div ref={qrRef} className="p-4 border-2 border-[#1B3A6B]/10 rounded-xl">
-              <QRCode value={FORM_URL} size={150} fgColor="#1B3A6B" bgColor="#FFFFFF" />
+          {/* QR — dos códigos separados */}
+          <div className="space-y-4">
+            {/* QR Solicitante */}
+            <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-[#1B3A6B] flex items-center justify-center text-white text-xs font-bold">A</span>
+                <h2 className="font-semibold text-[#1B3A6B] text-sm">QR Solicitante</h2>
+              </div>
+              <p className="text-xs text-gray-400 text-center">
+                {sessions.filter(s => (s.rol === 'solicitante' || s.rol === null) && s.estado === 'completo').length} registrado(s)
+              </p>
+              <div ref={qrSolRef} className="p-3 border-2 border-[#1B3A6B]/10 rounded-xl">
+                <QRCode value={FORM_URL_SOL} size={130} fgColor="#1B3A6B" bgColor="#FFFFFF" />
+              </div>
+              <button
+                onClick={() => downloadQR(qrSolRef, 'QR-Solicitante-ParaisoDePaz.svg')}
+                className="w-full bg-[#1B3A6B] text-white py-2.5 rounded-xl text-xs font-medium hover:bg-[#152e57] transition-colors"
+              >
+                Descargar SVG
+              </button>
             </div>
-            <p className="text-gray-400 text-xs text-center break-all leading-relaxed">{FORM_URL}</p>
-            <button
-              onClick={downloadQR}
-              className="w-full bg-[#1B3A6B] text-white py-3 rounded-xl text-sm font-medium hover:bg-[#152e57] transition-colors"
-            >
-              Descargar QR (SVG)
-            </button>
-            <p className="text-gray-400 text-xs text-center">
-              Imprimir y colocar en sala de espera y mostrador
-            </p>
+            {/* QR Garante */}
+            <div className="bg-white rounded-2xl shadow-sm p-5 flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold">G</span>
+                <h2 className="font-semibold text-[#1B3A6B] text-sm">QR Garante</h2>
+              </div>
+              <p className="text-xs text-gray-400 text-center">
+                {sessions.filter(s => s.rol === 'garante' && s.estado === 'completo').length} registrado(s)
+              </p>
+              <div ref={qrGarRef} className="p-3 border-2 border-[#B8956A]/10 rounded-xl">
+                <QRCode value={FORM_URL_GAR} size={130} fgColor="#B8956A" bgColor="#FFFFFF" />
+              </div>
+              <button
+                onClick={() => downloadQR(qrGarRef, 'QR-Garante-ParaisoDePaz.svg')}
+                className="w-full bg-[#B8956A] text-white py-2.5 rounded-xl text-xs font-medium hover:bg-[#a07a55] transition-colors"
+              >
+                Descargar SVG
+              </button>
+            </div>
           </div>
         </div>
       </div>

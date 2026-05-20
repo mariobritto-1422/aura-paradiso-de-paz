@@ -8,10 +8,11 @@ const INPUT_CLASS =
 type Props = {
   selected: DeudoFichado | null
   onSelect: (d: DeudoFichado | null) => void
-  onFicharNuevo: () => void
+  onFicharNuevo?: () => void
+  rolFilter?: 'solicitante' | 'garante'
 }
 
-export function DeudoBuscador({ selected, onSelect, onFicharNuevo }: Props) {
+export function DeudoBuscador({ selected, onSelect, onFicharNuevo, rolFilter }: Props) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<DeudoFichado[]>([])
   const [open, setOpen] = useState(false)
@@ -36,13 +37,18 @@ export function DeudoBuscador({ selected, onSelect, onFicharNuevo }: Props) {
     filters.push(`dni.ilike.%${dniNorm}%`)
     if (dniNorm !== q) filters.push(`dni.ilike.%${q}%`)
 
-    const { data } = await supabase
+    let q2 = supabase
       .from('deudos_fichados')
       .select('*')
       .eq('estado', 'completo')
-      .or('rol.is.null,rol.eq.solicitante')
-      .or(filters.join(','))
-      .limit(8)
+
+    if (rolFilter === 'garante') {
+      q2 = q2.eq('rol', 'garante')
+    } else {
+      q2 = q2.or('rol.is.null,rol.eq.solicitante')
+    }
+
+    const { data } = await q2.or(filters.join(',')).limit(8)
     const rows = (data as DeudoFichado[]) ?? []
     setResults(rows)
     setNoResults(rows.length === 0)
@@ -111,13 +117,15 @@ export function DeudoBuscador({ selected, onSelect, onFicharNuevo }: Props) {
       {open && noResults && !loading && (
         <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
           <p className="text-sm text-gray-500 mb-3">No se encontraron resultados para "{query}".</p>
-          <button
-            type="button"
-            onMouseDown={onFicharNuevo}
-            className="text-sm font-medium text-[#1B3A6B] underline"
-          >
-            Fichar nuevo deudo manualmente
-          </button>
+          {onFicharNuevo && (
+            <button
+              type="button"
+              onMouseDown={onFicharNuevo}
+              className="text-sm font-medium text-[#1B3A6B] underline"
+            >
+              Fichar nuevo deudo manualmente
+            </button>
+          )}
         </div>
       )}
     </div>

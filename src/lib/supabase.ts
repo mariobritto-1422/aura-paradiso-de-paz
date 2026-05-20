@@ -94,6 +94,7 @@ export type Servicio = {
   estado: string
   garante_id: string | null
   importe_servicio: number | null
+  tipo_afiliacion: string | null
 }
 
 export type Usuario = {
@@ -121,12 +122,13 @@ export type Comision = {
   servicio_id: string | null
   asesor_nombre: string
   asesor_whatsapp: string | null
-  importe_servicio: number
-  porcentaje: number
+  importe_servicio: number | null
+  porcentaje: number | null
   monto_comision: number
   fecha_servicio: string
   fecha_notificacion: string | null
   notificado: boolean
+  tipo: string
   created_at: string
 }
 
@@ -147,5 +149,6 @@ export type ConfiguracionComisiones = {
   id: string
   base_minima: number
   porcentaje: number
+  monto_fijo_obra_social: number
   updated_at: string
 }

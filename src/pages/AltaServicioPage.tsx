@@ -72,6 +72,7 @@ type ServicioForm = {
   deudo_id: string; garante_id: string
   asesor: string; asesor_custom: string
   importe_servicio: string
+  tipo_afiliacion: string
 }
 
 const EMPTY: ServicioForm = {
@@ -101,6 +102,7 @@ const EMPTY: ServicioForm = {
   doc_otros: '', deudo_id: '', garante_id: '',
   asesor: '', asesor_custom: '',
   importe_servicio: '',
+  tipo_afiliacion: '',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -413,6 +415,7 @@ export default function AltaServicioPage() {
   const [preparadores, setPreparadores] = useState<string[]>([])
   const [destinos, setDestinos] = useState<string[]>([])
   const [asesores, setAsesores] = useState<{ nombre: string; whatsapp: string | null }[]>([])
+  const [comisionCfg, setComisionCfg] = useState<{ base_minima: number; porcentaje: number; monto_fijo_obra_social: number } | null>(null)
 
   useEffect(() => {
     supabase.from('catalogos_preparador').select('nombre').eq('activo', true).order('nombre')
@@ -430,6 +433,8 @@ export default function AltaServicioPage() {
         else
           setAsesores(STAFF.map(n => ({ nombre: n, whatsapp: null })))
       })
+    supabase.from('configuracion_comisiones').select('base_minima,porcentaje,monto_fijo_obra_social').single()
+      .then(({ data }) => { if (data) setComisionCfg(data as typeof comisionCfg) })
   }, [])
 
   function toggle(s: keyof typeof open) {
@@ -529,6 +534,7 @@ export default function AltaServicioPage() {
       asesor:                      asesorFinal || null,
       estado:                      'activo',
       importe_servicio:            form.importe_servicio ? parseFloat(form.importe_servicio) : null,
+      tipo_afiliacion:             form.tipo_afiliacion || null,
     }
 
     const { data, error } = await supabase
@@ -550,33 +556,34 @@ export default function AltaServicioPage() {
 
     // ── Comisión ──────────────────────────────────────────────────────────────
     const importe = form.importe_servicio ? parseFloat(form.importe_servicio) : 0
-    if (importe > 0 && asesorFinal) {
+    const tipoAfiliacion = form.tipo_afiliacion
+    if (asesorFinal) {
       const { data: cfg } = await supabase
         .from('configuracion_comisiones')
-        .select('base_minima, porcentaje')
+        .select('base_minima, porcentaje, monto_fijo_obra_social')
         .single()
-      const baseMinima = cfg?.base_minima ?? 500000
-      const porcentaje = cfg?.porcentaje ?? 3
-      if (importe >= baseMinima) {
-        const monto = Math.round(importe * porcentaje / 100)
-        const asesorObj = asesores.find(a => a.nombre === asesorFinal)
-        const fechaServicio = form.fecha_servicio
-          ? form.fecha_servicio.split('T')[0]
-          : new Date().toISOString().split('T')[0]
+      const asesorObj = asesores.find(a => a.nombre === asesorFinal)
+      const fechaServicio = form.fecha_servicio
+        ? form.fecha_servicio.split('T')[0]
+        : new Date().toISOString().split('T')[0]
+      const servicioId = (data as { id: string }).id
+
+      if (tipoAfiliacion === 'Obra Social') {
+        const montoFijo = (cfg as typeof comisionCfg)?.monto_fijo_obra_social ?? 15000
         const { data: comision } = await supabase
           .from('comisiones')
           .insert({
-            servicio_id: (data as { id: string }).id,
+            servicio_id: servicioId,
             asesor_nombre: asesorFinal,
             asesor_whatsapp: asesorObj?.whatsapp ?? null,
-            importe_servicio: importe,
-            porcentaje,
-            monto_comision: monto,
+            importe_servicio: null,
+            porcentaje: null,
+            monto_comision: montoFijo,
             fecha_servicio: fechaServicio,
+            tipo: 'obra_social',
           })
           .select('id')
           .single()
-        // Notificar workflow n8n (fire and forget)
         if (comision) {
           fetch('https://cosa-santa-n8n.6nfych.easypanel.host/webhook/aura-comision', {
             method: 'POST',
@@ -585,11 +592,48 @@ export default function AltaServicioPage() {
               comision_id: (comision as { id: string }).id,
               asesor_nombre: asesorFinal,
               asesor_whatsapp: asesorObj?.whatsapp ?? null,
-              importe_servicio: importe,
-              monto_comision: monto,
+              monto_comision: montoFijo,
               fecha_servicio: fechaServicio,
+              tipo: 'obra_social',
             }),
           }).catch(() => {})
+        }
+      } else if (importe > 0) {
+        // Particular: comisión sobre el excedente
+        const baseMinima = (cfg as typeof comisionCfg)?.base_minima ?? 500000
+        const porcentaje = (cfg as typeof comisionCfg)?.porcentaje ?? 3
+        if (importe >= baseMinima) {
+          const excedente = importe - baseMinima
+          const monto = Math.round(excedente * porcentaje / 100)
+          const { data: comision } = await supabase
+            .from('comisiones')
+            .insert({
+              servicio_id: servicioId,
+              asesor_nombre: asesorFinal,
+              asesor_whatsapp: asesorObj?.whatsapp ?? null,
+              importe_servicio: importe,
+              porcentaje,
+              monto_comision: monto,
+              fecha_servicio: fechaServicio,
+              tipo: 'particular',
+            })
+            .select('id')
+            .single()
+          if (comision) {
+            fetch('https://cosa-santa-n8n.6nfych.easypanel.host/webhook/aura-comision', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                comision_id: (comision as { id: string }).id,
+                asesor_nombre: asesorFinal,
+                asesor_whatsapp: asesorObj?.whatsapp ?? null,
+                importe_servicio: importe,
+                monto_comision: monto,
+                fecha_servicio: fechaServicio,
+                tipo: 'particular',
+              }),
+            }).catch(() => {})
+          }
         }
       }
     }
@@ -679,7 +723,8 @@ export default function AltaServicioPage() {
                   onChange={e => set('fallecido_talla', e.target.value)} className={IC}>
                   <option value="">Seleccionar...</option>
                   <option>Estándar</option>
-                  <option>Semi medida</option>
+                  <option>Mediano</option>
+                  <option>Robusto</option>
                   <option>Extraordinario</option>
                 </select>
               </Field>
@@ -873,28 +918,58 @@ export default function AltaServicioPage() {
 
           {/* S4 — Deudo / Solicitante */}
           <Section badge="4" title="Solicitante y Garante" isOpen={open.s4} onToggle={() => toggle('s4')}>
-            <p className="text-xs text-gray-500 mb-3">
-              Buscá al solicitante que completó el formulario QR. Al seleccionarlo, el garante se carga automáticamente.
-            </p>
-            <DeudoBuscador
-              selected={selectedDeudo}
-              onSelect={handleDeudoSelect}
-              onFicharNuevo={() => setShowFichar(true)}
-            />
-            {selectedGarante && (
-              <div className="mt-3 flex items-center gap-3 p-3 bg-[#B8956A]/10 border border-[#B8956A]/30 rounded-xl">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-[#B8956A] font-medium uppercase tracking-wide mb-0.5">Garante vinculado</p>
-                  <p className="font-medium text-sm text-gray-800 truncate">{selectedGarante.nombre}</p>
-                  <p className="text-xs text-gray-500">DNI: {selectedGarante.dni ?? '—'} · {selectedGarante.relacion_fallecido ?? '—'}</p>
-                </div>
+            <div className="space-y-5">
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Solicitante</p>
+                <p className="text-xs text-gray-400 mb-2">Buscá al solicitante que completó el formulario QR.</p>
+                <DeudoBuscador
+                  selected={selectedDeudo}
+                  onSelect={handleDeudoSelect}
+                  onFicharNuevo={() => setShowFichar(true)}
+                />
               </div>
-            )}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Garante</p>
+                {selectedGarante ? (
+                  <div className="flex items-center gap-3 p-3 bg-[#B8956A]/10 border border-[#B8956A]/30 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-[#B8956A] font-medium uppercase tracking-wide mb-0.5">Garante</p>
+                      <p className="font-medium text-sm text-gray-800 truncate">{selectedGarante.nombre}</p>
+                      <p className="text-xs text-gray-500">DNI: {selectedGarante.dni ?? '—'} · {selectedGarante.relacion_fallecido ?? '—'}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedGarante(null); set('garante_id', '') }}
+                      className="text-xs text-gray-400 hover:text-gray-600 underline flex-shrink-0"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 mb-2">Buscá al garante que completó el formulario QR de garante.</p>
+                    <DeudoBuscador
+                      selected={null}
+                      onSelect={d => { if (d) { setSelectedGarante(d); set('garante_id', d.id) } }}
+                      rolFilter="garante"
+                    />
+                  </>
+                )}
+              </div>
+            </div>
           </Section>
 
           {/* S5 — Asesor y Presupuesto */}
           <Section badge="5" title="Asesor y Presupuesto" isOpen={open.s5} onToggle={() => toggle('s5')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Tipo de afiliación" required>
+                <select value={form.tipo_afiliacion} required
+                  onChange={e => set('tipo_afiliacion', e.target.value)} className={IC}>
+                  <option value="">Seleccionar...</option>
+                  <option>Particular</option>
+                  <option>Obra Social</option>
+                </select>
+              </Field>
               <Field label="Asesor que tomó el servicio" required>
                 <select value={form.asesor} required
                   onChange={e => set('asesor', e.target.value)} className={IC}>
@@ -919,10 +994,28 @@ export default function AltaServicioPage() {
                 </Field>
               </div>
             )}
-            {form.importe_servicio && parseFloat(form.importe_servicio) >= 500000 && (
+            {/* Preview comisión */}
+            {form.tipo_afiliacion === 'Obra Social' && comisionCfg && (
               <p className="text-xs text-emerald-600 mt-2">
-                Comisión estimada (3%): ${Math.round(parseFloat(form.importe_servicio) * 0.03).toLocaleString('es-AR')}
+                Comisión fija obra social: ${(comisionCfg.monto_fijo_obra_social).toLocaleString('es-AR')}
               </p>
+            )}
+            {form.tipo_afiliacion === 'Particular' && form.importe_servicio && comisionCfg && (
+              (() => {
+                const imp = parseFloat(form.importe_servicio)
+                const base = comisionCfg.base_minima
+                const porc = comisionCfg.porcentaje
+                if (imp >= base) {
+                  const excedente = imp - base
+                  const monto = Math.round(excedente * porc / 100)
+                  return (
+                    <p className="text-xs text-emerald-600 mt-2">
+                      Comisión estimada ({porc}% sobre excedente ${excedente.toLocaleString('es-AR')}): ${monto.toLocaleString('es-AR')}
+                    </p>
+                  )
+                }
+                return <p className="text-xs text-gray-400 mt-2">Importe por debajo de la base mínima (${base.toLocaleString('es-AR')}). Sin comisión.</p>
+              })()
             )}
           </Section>
 

@@ -33,7 +33,13 @@ type Screen = 'loading' | 'form' | 'success' | 'expired' | 'error'
 
 const RELACIONES = ['Cónyuge', 'Hijo/a', 'Hermano/a', 'Padre/Madre', 'Otro']
 
+function getFormRol(): 'solicitante' | 'garante' {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('rol') === 'garante' ? 'garante' : 'solicitante'
+}
+
 export default function FormPage() {
+  const formRol = getFormRol()
   const [screen, setScreen] = useState<Screen>('loading')
   const [token, setToken] = useState('')
   const [sol, setSol] = useState<Persona>(EMPTY_P)
@@ -70,7 +76,7 @@ export default function FormPage() {
 
     const { error } = await supabase
       .from('deudos_fichados')
-      .upsert({ session_token: t, estado: 'activo', rol: 'solicitante' }, { onConflict: 'session_token', ignoreDuplicates: true })
+      .upsert({ session_token: t, estado: 'activo', rol: formRol }, { onConflict: 'session_token', ignoreDuplicates: true })
 
     if (error) { setScreen('error'); return }
 
@@ -98,25 +104,31 @@ export default function FormPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    const errs = { sol: '', gar: '' }
-    if (!sol.fecha_nacimiento) errs.sol = 'Ingresá una fecha válida en formato DD/MM/AAAA'
-    if (!gar.fecha_nacimiento) errs.gar = 'Ingresá una fecha válida en formato DD/MM/AAAA'
-    if (errs.sol || errs.gar) { setDateErr(errs); return }
-
-    setSaving(true)
-
-    const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-    const { data: dups } = await supabase
-      .from('deudos_fichados')
-      .select('id')
-      .eq('dni', sol.dni)
-      .eq('estado', 'completo')
-      .gte('created_at', since)
-
-    if (dups && dups.length > 0) {
-      setSaving(false)
-      setDupModal(true)
-      return
+    if (formRol === 'solicitante') {
+      if (!sol.fecha_nacimiento) {
+        setDateErr({ sol: 'Ingresá una fecha válida en formato DD/MM/AAAA', gar: '' })
+        return
+      }
+      // Verificar duplicado por DNI en últimos 30 min
+      setSaving(true)
+      const since = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      const { data: dups } = await supabase
+        .from('deudos_fichados')
+        .select('id')
+        .eq('dni', sol.dni)
+        .eq('estado', 'completo')
+        .gte('created_at', since)
+      if (dups && dups.length > 0) {
+        setSaving(false)
+        setDupModal(true)
+        return
+      }
+    } else {
+      // garante
+      if (!gar.fecha_nacimiento) {
+        setDateErr({ sol: '', gar: 'Ingresá una fecha válida en formato DD/MM/AAAA' })
+        return
+      }
     }
 
     await saveForm()
@@ -127,47 +139,50 @@ export default function FormPage() {
     clearTimeout(timerRef.current)
     clearTimeout(warnRef.current)
 
-    const whatsappSol = sameTelSol ? sol.celular : sol.whatsapp
+    let saveError: unknown = null
 
-    // Guardar solicitante
-    const { error: e1 } = await supabase
-      .from('deudos_fichados')
-      .update({
-        nombre: sol.nombre,
-        dni: sol.dni,
-        fecha_nacimiento: sol.fecha_nacimiento || null,
-        telefono: sol.celular,
-        whatsapp: whatsappSol,
-        email: sol.email || null,
-        domicilio: sol.domicilio || null,
-        trabajo_ocupacion: sol.trabajo_ocupacion || null,
-        relacion_fallecido: sol.relacion_fallecido,
-        canal_notificacion: sol.canal_notificacion,
-        rol: 'solicitante',
-        estado: 'completo',
-      })
-      .eq('session_token', token)
-
-    // Guardar garante
-    const { error: e2 } = await supabase
-      .from('deudos_fichados')
-      .upsert({
-        session_token: token + ':g',
-        nombre: gar.nombre,
-        dni: gar.dni,
-        fecha_nacimiento: gar.fecha_nacimiento || null,
-        telefono: gar.celular,
-        whatsapp: gar.celular,
-        domicilio: gar.domicilio || null,
-        trabajo_ocupacion: gar.trabajo_ocupacion || null,
-        relacion_fallecido: gar.relacion_fallecido,
-        rol: 'garante',
-        estado: 'completo',
-      }, { onConflict: 'session_token', ignoreDuplicates: false })
+    if (formRol === 'solicitante') {
+      const whatsappSol = sameTelSol ? sol.celular : sol.whatsapp
+      const { error } = await supabase
+        .from('deudos_fichados')
+        .update({
+          nombre: sol.nombre,
+          dni: sol.dni,
+          fecha_nacimiento: sol.fecha_nacimiento || null,
+          telefono: sol.celular,
+          whatsapp: whatsappSol,
+          email: sol.email || null,
+          domicilio: sol.domicilio || null,
+          trabajo_ocupacion: sol.trabajo_ocupacion || null,
+          relacion_fallecido: sol.relacion_fallecido,
+          canal_notificacion: sol.canal_notificacion,
+          rol: 'solicitante',
+          estado: 'completo',
+        })
+        .eq('session_token', token)
+      saveError = error
+    } else {
+      const { error } = await supabase
+        .from('deudos_fichados')
+        .update({
+          nombre: gar.nombre,
+          dni: gar.dni,
+          fecha_nacimiento: gar.fecha_nacimiento || null,
+          telefono: gar.celular,
+          whatsapp: gar.celular,
+          domicilio: gar.domicilio || null,
+          trabajo_ocupacion: gar.trabajo_ocupacion || null,
+          relacion_fallecido: gar.relacion_fallecido,
+          rol: 'garante',
+          estado: 'completo',
+        })
+        .eq('session_token', token)
+      saveError = error
+    }
 
     setSaving(false)
 
-    if (e1 || e2) { setScreen('error'); return }
+    if (saveError) { setScreen('error'); return }
 
     sessionStorage.setItem('aura_status', 'completo')
     setDupModal(false)
@@ -175,7 +190,7 @@ export default function FormPage() {
   }
 
   if (screen === 'loading') return <Loading />
-  if (screen === 'success') return <Success />
+  if (screen === 'success') return <Success formRol={formRol} />
   if (screen === 'expired') return <Expired />
   if (screen === 'error') return <Error />
 
@@ -191,130 +206,134 @@ export default function FormPage() {
 
       <div className="max-w-lg mx-auto px-5 py-8">
         <p className="text-gray-600 text-sm leading-relaxed mb-8 text-center">
-          Complete los datos del <strong>Solicitante</strong> y del <strong>Garante</strong>.<br />
-          Un asesor de Paraíso de Paz se comunicará a la brevedad.
+          {formRol === 'solicitante'
+            ? <>Complete sus datos como <strong>Solicitante</strong>.<br />Un asesor de Paraíso de Paz se comunicará a la brevedad.</>
+            : <>Complete los datos del <strong>Garante</strong> del servicio.<br />Un asesor de Paraíso de Paz se comunicará a la brevedad.</>
+          }
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* ── SECCIÓN A — SOLICITANTE ── */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="bg-[#1B3A6B] px-5 py-3 flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">A</span>
-              <h2 className="text-white text-sm font-semibold">Datos del Solicitante</h2>
-              <span className="text-[#B8956A] text-xs">(quien contrata el servicio)</span>
-            </div>
-            <div className="p-5 space-y-4">
-              <Field label="Apellido y Nombre">
-                <input type="text" name="nombre" value={sol.nombre} onChange={chSol}
-                  required className={IC} placeholder="Apellido, Nombre completo" autoComplete="name" />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="DNI">
-                  <input type="text" inputMode="numeric" name="dni" value={sol.dni} onChange={chSol}
-                    required className={IC} placeholder="Sin puntos" autoComplete="off" />
+          {formRol === 'solicitante' ? (
+            /* ── SECCIÓN SOLICITANTE ── */
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="bg-[#1B3A6B] px-5 py-3 flex items-center gap-3">
+                <span className="w-7 h-7 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">A</span>
+                <h2 className="text-white text-sm font-semibold">Datos del Solicitante</h2>
+                <span className="text-[#B8956A] text-xs">(quien contrata el servicio)</span>
+              </div>
+              <div className="p-5 space-y-4">
+                <Field label="Apellido y Nombre">
+                  <input type="text" name="nombre" value={sol.nombre} onChange={chSol}
+                    required className={IC} placeholder="Apellido, Nombre completo" autoComplete="name" />
                 </Field>
-                <Field label="Fecha de nacimiento" required>
-                  <DateInput
-                    value={sol.fecha_nacimiento}
-                    onChange={iso => { setSol(p => ({ ...p, fecha_nacimiento: iso })); setDateErr(e => ({ ...e, sol: '' })) }}
-                    error={dateErr.sol}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="DNI">
+                    <input type="text" inputMode="numeric" name="dni" value={sol.dni} onChange={chSol}
+                      required className={IC} placeholder="Sin puntos" autoComplete="off" />
+                  </Field>
+                  <Field label="Fecha de nacimiento" required>
+                    <DateInput
+                      value={sol.fecha_nacimiento}
+                      onChange={iso => { setSol(p => ({ ...p, fecha_nacimiento: iso })); setDateErr(e => ({ ...e, sol: '' })) }}
+                      error={dateErr.sol}
+                    />
+                  </Field>
+                </div>
+                <Field label="Celular">
+                  <input type="tel" name="celular" value={sol.celular} onChange={chSol}
+                    required className={IC} placeholder="376 154-12345" autoComplete="tel" />
+                </Field>
+                <div>
+                  <Field label="WhatsApp">
+                    <input type="tel" name="whatsapp" value={sameTelSol ? sol.celular : sol.whatsapp}
+                      onChange={chSol} required disabled={sameTelSol}
+                      className={IC + (sameTelSol ? ' opacity-60 bg-gray-50' : '')}
+                      placeholder="376 154-12345" />
+                  </Field>
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={sameTelSol}
+                      onChange={e => { setSameTelSol(e.target.checked); if (e.target.checked) setSol(p => ({ ...p, whatsapp: p.celular })) }}
+                      className="w-4 h-4 accent-[#1B3A6B]" />
+                    <span className="text-sm text-gray-500">Mismo número que el celular</span>
+                  </label>
+                </div>
+                <Field label="Email" required={false}>
+                  <input type="email" name="email" value={sol.email} onChange={chSol}
+                    className={IC} placeholder="correo@ejemplo.com" autoComplete="email" />
+                </Field>
+                <Field label="Domicilio">
+                  <input type="text" name="domicilio" value={sol.domicilio} onChange={chSol}
+                    required className={IC} placeholder="Calle, número, barrio..." />
+                </Field>
+                <Field label="Trabajo / Ocupación">
+                  <input type="text" name="trabajo_ocupacion" value={sol.trabajo_ocupacion} onChange={chSol}
+                    className={IC} placeholder="Empresa u ocupación" />
+                </Field>
+                <Field label="Relación con el fallecido">
+                  <select name="relacion_fallecido" value={sol.relacion_fallecido} onChange={chSol}
+                    required className={IC}>
+                    <option value="">Seleccione una opción</option>
+                    {RELACIONES.map(r => <option key={r}>{r}</option>)}
+                  </select>
+                </Field>
+                <Field label="Canal de notificación preferido">
+                  <select name="canal_notificacion" value={sol.canal_notificacion} onChange={chSol}
+                    required className={IC}>
+                    <option>WhatsApp</option>
+                    <option>Email</option>
+                  </select>
                 </Field>
               </div>
-              <Field label="Celular">
-                <input type="tel" name="celular" value={sol.celular} onChange={chSol}
-                  required className={IC} placeholder="376 154-12345" autoComplete="tel" />
-              </Field>
-              <div>
-                <Field label="WhatsApp">
-                  <input type="tel" name="whatsapp" value={sameTelSol ? sol.celular : sol.whatsapp}
-                    onChange={chSol} required disabled={sameTelSol}
-                    className={IC + (sameTelSol ? ' opacity-60 bg-gray-50' : '')}
-                    placeholder="376 154-12345" />
-                </Field>
-                <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
-                  <input type="checkbox" checked={sameTelSol}
-                    onChange={e => { setSameTelSol(e.target.checked); if (e.target.checked) setSol(p => ({ ...p, whatsapp: p.celular })) }}
-                    className="w-4 h-4 accent-[#1B3A6B]" />
-                  <span className="text-sm text-gray-500">Mismo número que el celular</span>
-                </label>
+            </div>
+          ) : (
+            /* ── SECCIÓN GARANTE ── */
+            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="bg-[#1B3A6B] px-5 py-3 flex items-center gap-3">
+                <span className="w-7 h-7 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">G</span>
+                <h2 className="text-white text-sm font-semibold">Datos del Garante</h2>
+                <span className="text-[#B8956A] text-xs">(quien puede retirar documentación)</span>
               </div>
-              <Field label="Email" required={false}>
-                <input type="email" name="email" value={sol.email} onChange={chSol}
-                  className={IC} placeholder="correo@ejemplo.com" autoComplete="email" />
-              </Field>
-              <Field label="Domicilio">
-                <input type="text" name="domicilio" value={sol.domicilio} onChange={chSol}
-                  required className={IC} placeholder="Calle, número, barrio..." />
-              </Field>
-              <Field label="Trabajo / Ocupación">
-                <input type="text" name="trabajo_ocupacion" value={sol.trabajo_ocupacion} onChange={chSol}
-                  className={IC} placeholder="Empresa u ocupación" />
-              </Field>
-              <Field label="Relación con el fallecido">
-                <select name="relacion_fallecido" value={sol.relacion_fallecido} onChange={chSol}
-                  required className={IC}>
-                  <option value="">Seleccione una opción</option>
-                  {RELACIONES.map(r => <option key={r}>{r}</option>)}
-                </select>
-              </Field>
-              <Field label="Canal de notificación preferido">
-                <select name="canal_notificacion" value={sol.canal_notificacion} onChange={chSol}
-                  required className={IC}>
-                  <option>WhatsApp</option>
-                  <option>Email</option>
-                </select>
-              </Field>
-            </div>
-          </div>
-
-          {/* ── SECCIÓN B — GARANTE ── */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="bg-[#1B3A6B] px-5 py-3 flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-[#B8956A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">B</span>
-              <h2 className="text-white text-sm font-semibold">Datos del Garante</h2>
-              <span className="text-[#B8956A] text-xs">(quien puede retirar documentación)</span>
-            </div>
-            <div className="p-5 space-y-4">
-              <Field label="Apellido y Nombre">
-                <input type="text" name="nombre" value={gar.nombre} onChange={chGar}
-                  required className={IC} placeholder="Apellido, Nombre completo" />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="DNI">
-                  <input type="text" inputMode="numeric" name="dni" value={gar.dni} onChange={chGar}
-                    required className={IC} placeholder="Sin puntos" autoComplete="off" />
+              <div className="p-5 space-y-4">
+                <Field label="Apellido y Nombre">
+                  <input type="text" name="nombre" value={gar.nombre} onChange={chGar}
+                    required className={IC} placeholder="Apellido, Nombre completo" />
                 </Field>
-                <Field label="Fecha de nacimiento" required>
-                  <DateInput
-                    value={gar.fecha_nacimiento}
-                    onChange={iso => { setGar(p => ({ ...p, fecha_nacimiento: iso })); setDateErr(e => ({ ...e, gar: '' })) }}
-                    error={dateErr.gar}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="DNI">
+                    <input type="text" inputMode="numeric" name="dni" value={gar.dni} onChange={chGar}
+                      required className={IC} placeholder="Sin puntos" autoComplete="off" />
+                  </Field>
+                  <Field label="Fecha de nacimiento" required>
+                    <DateInput
+                      value={gar.fecha_nacimiento}
+                      onChange={iso => { setGar(p => ({ ...p, fecha_nacimiento: iso })); setDateErr(e => ({ ...e, gar: '' })) }}
+                      error={dateErr.gar}
+                    />
+                  </Field>
+                </div>
+                <Field label="Celular">
+                  <input type="tel" name="celular" value={gar.celular} onChange={chGar}
+                    required className={IC} placeholder="376 154-12345" />
+                </Field>
+                <Field label="Domicilio">
+                  <input type="text" name="domicilio" value={gar.domicilio} onChange={chGar}
+                    required className={IC} placeholder="Calle, número, barrio..." />
+                </Field>
+                <Field label="Trabajo / Ocupación">
+                  <input type="text" name="trabajo_ocupacion" value={gar.trabajo_ocupacion} onChange={chGar}
+                    className={IC} placeholder="Empresa u ocupación" />
+                </Field>
+                <Field label="Relación con el fallecido">
+                  <select name="relacion_fallecido" value={gar.relacion_fallecido} onChange={chGar}
+                    required className={IC}>
+                    <option value="">Seleccione una opción</option>
+                    {RELACIONES.map(r => <option key={r}>{r}</option>)}
+                  </select>
                 </Field>
               </div>
-              <Field label="Celular">
-                <input type="tel" name="celular" value={gar.celular} onChange={chGar}
-                  required className={IC} placeholder="376 154-12345" />
-              </Field>
-              <Field label="Domicilio">
-                <input type="text" name="domicilio" value={gar.domicilio} onChange={chGar}
-                  required className={IC} placeholder="Calle, número, barrio..." />
-              </Field>
-              <Field label="Trabajo / Ocupación">
-                <input type="text" name="trabajo_ocupacion" value={gar.trabajo_ocupacion} onChange={chGar}
-                  className={IC} placeholder="Empresa u ocupación" />
-              </Field>
-              <Field label="Relación con el fallecido">
-                <select name="relacion_fallecido" value={gar.relacion_fallecido} onChange={chGar}
-                  required className={IC}>
-                  <option value="">Seleccione una opción</option>
-                  {RELACIONES.map(r => <option key={r}>{r}</option>)}
-                </select>
-              </Field>
             </div>
-          </div>
+          )}
 
           <div className="pt-2 pb-4">
             <button type="submit" disabled={saving}
@@ -407,7 +426,7 @@ function Loading() {
   )
 }
 
-function Success() {
+function Success({ formRol }: { formRol: 'solicitante' | 'garante' }) {
   return (
     <div className="min-h-screen bg-[#f8f7f5] flex flex-col">
       <Header />
@@ -419,7 +438,9 @@ function Success() {
         </div>
         <h2 className="text-[#1B3A6B] text-xl font-semibold mb-3">Datos registrados</h2>
         <p className="text-gray-600 text-sm leading-relaxed max-w-xs">
-          Sus datos han sido recibidos. Un asesor de Paraíso de Paz se comunicará con usted a la brevedad.
+          {formRol === 'garante'
+            ? 'Los datos del garante han sido recibidos. Un asesor de Paraíso de Paz se comunicará a la brevedad.'
+            : 'Sus datos han sido recibidos. Un asesor de Paraíso de Paz se comunicará con usted a la brevedad.'}
         </p>
         <p className="text-[#B8956A] text-sm mt-6 italic">Estamos aquí para acompañarlos.</p>
       </div>

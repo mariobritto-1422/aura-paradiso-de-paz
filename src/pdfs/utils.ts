@@ -18,7 +18,7 @@ export function txt(pdf: jsPDF, valor: string | null | undefined, x: number, y: 
   if (!valor) return
   if (opts?.bold) pdf.setFont('helvetica', 'bold')
   else pdf.setFont('helvetica', 'normal')
-  pdf.setFontSize(opts?.size ?? 9)
+  pdf.setFontSize(opts?.size ?? 11)
   pdf.text(valor, x, y + Y_OFFSET)
 }
 
@@ -64,7 +64,7 @@ export async function imprimirFormulario(s: ServicioConDeudo, info: FormularioIn
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   await addImageBackground(pdf, info.imagen)
   pdf.setFont('helvetica', 'normal')
-  pdf.setFontSize(9)
+  pdf.setFontSize(11)
   info.generarFn(pdf, s)
   const blob = pdf.output('blob')
   const url = URL.createObjectURL(blob)
