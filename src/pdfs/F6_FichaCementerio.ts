@@ -77,13 +77,13 @@ const C = {
   forma_pago:       { x: 73.4,  y: 158.2 },
 
   // Documentación — ORIGINAL y COPIA
-  doc_acta_orig:   { x: 83.5,  y: 177.3 }, doc_acta_cop:  { x: 102.9, y: 177.1 },
-  doc_lib_orig:    { x: 83.4,  y: 181.6 }, doc_lib_cop:   { x: 102.8, y: 181.3 },
-  doc_rec_orig:    { x: 83.4,  y: 186 },   doc_rec_cop:   { x: 102.8, y: 186 },
-  doc_fac_orig:    { x: 83.4,  y: 189.9 }, doc_fac_cop:   { x: 102.8, y: 189.9 },
-  doc_cen_orig:    { x: 83.7,  y: 194.6 }, doc_cen_cop:   { x: 102.8, y: 194.4 },
-  doc_car_orig:    { x: 83.7,  y: 199.3 }, doc_car_cop:   { x: 102.8, y: 198.9 },
-  doc_otr_orig:    { x: 83.7,  y: 203.1 }, doc_otr_cop:   { x: 102.8, y: 203.3 },
+  doc_acta_orig:   { x: 82.5,  y: 177.3 }, doc_acta_cop:  { x: 101.9, y: 177.1 },
+  doc_lib_orig:    { x: 82.4,  y: 181.6 }, doc_lib_cop:   { x: 101.8, y: 181.3 },
+  doc_rec_orig:    { x: 82.4,  y: 186 },   doc_rec_cop:   { x: 101.8, y: 186 },
+  doc_fac_orig:    { x: 82.4,  y: 189.9 }, doc_fac_cop:   { x: 101.8, y: 189.9 },
+  doc_cen_orig:    { x: 82.7,  y: 194.6 }, doc_cen_cop:   { x: 101.8, y: 194.4 },
+  doc_car_orig:    { x: 82.7,  y: 199.3 }, doc_car_cop:   { x: 101.8, y: 198.9 },
+  doc_otr_orig:    { x: 82.7,  y: 203.1 }, doc_otr_cop:   { x: 101.8, y: 203.3 },
 
   // Fecha y firma (columna derecha)
   firma_dia:       { x: 149.4, y: 172.1 },
