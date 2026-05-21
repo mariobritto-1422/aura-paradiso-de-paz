@@ -86,6 +86,7 @@ const C = {
   doc_otr_orig:    { x: 83.7,  y: 203.1 }, doc_otr_cop:   { x: 102.8, y: 203.3 },
 
   // Fecha y firma (columna derecha)
+  firma_dia:       { x: 149.4, y: 172.1 },
   firma_mes:       { x: 162,   y: 170.8 },
   firma_anio:      { x: 192.9, y: 171 },
   solicitante:     { x: 144,   y: 179.2 },
@@ -219,8 +220,9 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, doc?.carnet_obra_social?.copia,    C.doc_car_cop.x,  C.doc_car_cop.y)
 
   // — Fecha y firma (columna derecha) —
-  txt(pdf, MESES_LARGO[hoy.getMonth()],         C.firma_mes.x,    C.firma_mes.y)
-  txt(pdf, String(hoy.getFullYear()).slice(2),   C.firma_anio.x,   C.firma_anio.y)
+  txt(pdf, String(hoy.getDate()),                C.firma_dia.x,    C.firma_dia.y)
+  txt(pdf, MESES_LARGO[hoy.getMonth()],          C.firma_mes.x,    C.firma_mes.y)
+  txt(pdf, String(hoy.getFullYear()).slice(2),    C.firma_anio.x,   C.firma_anio.y)
   txt(pdf, s.deudo?.nombre ?? '',               C.solicitante.x,  C.solicitante.y)
   txt(pdf, s.deudo?.whatsapp ?? s.deudo?.telefono ?? '', C.contacto.x, C.contacto.y)
 
