@@ -38,7 +38,7 @@ export default function ConfiguracionPage() {
             onClick={() => {
               localStorage.removeItem('aura_panel_auth')
               localStorage.removeItem('aura_session_user')
-              navigate('/panel')
+              window.location.href = '/panel'
             }}
             className="text-xs text-white/60 border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
           >
