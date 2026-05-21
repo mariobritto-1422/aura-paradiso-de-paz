@@ -6,6 +6,9 @@ import { txt, formatFecha } from './utils'
 // ─── COORDENADAS calibradas (mm en A4 210×297) — calibrado 2026-05-19 ────────
 
 const C = {
+  // Número de orden correlativo
+  nro_registro: { x: 91.4, y: 27.3 },
+
   // Registro (TOMO / ACTA / FOLIO)
   tomo:  { x: 154,   y: 35.5 },
   acta:  { x: 169.2, y: 35.1 },
@@ -146,6 +149,9 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   const doc = s.documentacion
   const hoy = new Date()
   const sala = (s.sala ?? '').toLowerCase()
+
+  // — Número de orden —
+  txt(pdf, String(s.numero_orden), C.nro_registro.x, C.nro_registro.y)
 
   // — Fecha encabezado —
   txt(pdf, fs.dia,  C.fecha_dia.x,  C.fecha_dia.y)
