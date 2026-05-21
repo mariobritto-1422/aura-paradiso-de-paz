@@ -86,7 +86,6 @@ const C = {
   doc_otr_orig:    { x: 83.7,  y: 203.1 }, doc_otr_cop:   { x: 102.8, y: 203.3 },
 
   // Fecha y firma (columna derecha)
-  firma_ciudad:    { x: 147.3, y: 171 },
   firma_mes:       { x: 162,   y: 170.8 },
   firma_anio:      { x: 192.9, y: 171 },
   solicitante:     { x: 144,   y: 179.2 },
@@ -220,7 +219,6 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, doc?.carnet_obra_social?.copia,    C.doc_car_cop.x,  C.doc_car_cop.y)
 
   // — Fecha y firma (columna derecha) —
-  txt(pdf, 'Posadas',                           C.firma_ciudad.x, C.firma_ciudad.y)
   txt(pdf, MESES_LARGO[hoy.getMonth()],         C.firma_mes.x,    C.firma_mes.y)
   txt(pdf, String(hoy.getFullYear()).slice(2),   C.firma_anio.x,   C.firma_anio.y)
   txt(pdf, s.deudo?.nombre ?? '',               C.solicitante.x,  C.solicitante.y)
