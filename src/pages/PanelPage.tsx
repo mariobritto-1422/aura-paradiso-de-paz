@@ -564,7 +564,7 @@ export default function PanelPage() {
                 {sessions.filter(s => s.rol === 'garante' && s.estado === 'completo').length} registrado(s)
               </p>
               <div ref={qrGarRef} className="p-3 border-2 border-[#B8956A]/10 rounded-xl">
-                <QRCode value={FORM_URL_GAR} size={130} fgColor="#B8956A" bgColor="#FFFFFF" />
+                <QRCode value={FORM_URL_GAR} size={130} fgColor="#000000" bgColor="#FFFFFF" />
               </div>
               <button
                 onClick={() => downloadQR(qrGarRef, 'QR-Garante-ParaisoDePaz.svg')}
