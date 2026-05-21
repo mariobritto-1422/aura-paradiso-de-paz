@@ -29,10 +29,22 @@ export default function ConfiguracionPage() {
           <h1 className="font-semibold text-sm">Configuración</h1>
           <p className="text-[#B8956A] text-xs">Paraíso de Paz — Catálogos</p>
         </div>
-        <button onClick={() => navigate('/panel')}
-          className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10">
-          ← Panel
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => navigate('/panel')}
+            className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10">
+            ← Panel
+          </button>
+          <button
+            onClick={() => {
+              localStorage.removeItem('aura_panel_auth')
+              localStorage.removeItem('aura_session_user')
+              navigate('/panel')
+            }}
+            className="text-xs text-white/60 border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
