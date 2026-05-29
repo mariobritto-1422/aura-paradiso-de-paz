@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase, type Servicio, type DeudoFichado, type ServicioConDeudo } from '../lib/supabase'
+import { supabase, type Servicio, type DeudoFichado, type ServicioConDeudo, type PagoServicio } from '../lib/supabase'
 import { getFormulariosRequeridos, imprimirFormulario, imprimirTodos, type FormularioInfo } from '../pdfs'
+import { formatMonto } from '../lib/format'
+import { generarComprobantePago } from '../pdfs/comprobante-pago'
+
+const FORMAS_PAGO = ['Efectivo', 'Tarjeta', 'Transferencia', 'Otro'] as const
 
 export default function ServicioDetallePage() {
   const { id } = useParams<{ id: string }>()
@@ -10,6 +14,14 @@ export default function ServicioDetallePage() {
   const [loading, setLoading] = useState(true)
   const [imprimiendo, setImprimiendo] = useState<string | null>(null)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
+
+  // Pagos
+  const [pagos, setPagos] = useState<PagoServicio[]>([])
+  const [showPagoModal, setShowPagoModal] = useState(false)
+  const [pagoMonto, setPagoMonto] = useState('')
+  const [pagoForma, setPagoForma] = useState<typeof FORMAS_PAGO[number]>('Efectivo')
+  const [pagoObs, setPagoObs] = useState('')
+  const [savingPago, setSavingPago] = useState(false)
 
   const formularios = servicio ? getFormulariosRequeridos(servicio) : []
 
@@ -32,7 +44,58 @@ export default function ServicioDetallePage() {
   useEffect(() => {
     if (!id) return
     loadServicio(id)
+    loadPagos(id)
   }, [id])
+
+  async function loadPagos(sid: string) {
+    const { data } = await supabase
+      .from('pagos_servicio')
+      .select('*')
+      .eq('servicio_id', sid)
+      .order('fecha_pago', { ascending: true })
+    if (data) setPagos(data as PagoServicio[])
+  }
+
+  async function handleRegistrarPago() {
+    if (!servicio || !pagoMonto) return
+    const monto = parseFloat(pagoMonto)
+    if (isNaN(monto) || monto <= 0) return
+    setSavingPago(true)
+
+    const { data: nuevoPago } = await supabase
+      .from('pagos_servicio')
+      .insert({
+        servicio_id: servicio.id,
+        monto,
+        forma_pago: pagoForma,
+        observacion: pagoObs.trim() || null,
+      })
+      .select('*')
+      .single()
+
+    if (nuevoPago) {
+      const nuevosPagos = [...pagos, nuevoPago as PagoServicio]
+      setPagos(nuevosPagos)
+      const totalPagado = nuevosPagos.reduce((s, p) => s + p.monto, 0)
+      const saldoRestante = Math.max(0, (servicio.importe_servicio ?? 0) - totalPagado)
+
+      // Marcar como cancelado si saldo = 0
+      if (servicio.importe_servicio && saldoRestante === 0) {
+        await supabase.from('servicios').update({ estado: 'cancelado' }).eq('id', servicio.id)
+        setServicio(prev => prev ? { ...prev, estado: 'cancelado' } : null)
+      }
+
+      generarComprobantePago(
+        nuevoPago as PagoServicio,
+        { numero_orden: servicio.numero_orden, fallecido_nombre: servicio.fallecido_nombre, importe_servicio: servicio.importe_servicio },
+        saldoRestante,
+      )
+    }
+
+    setPagoMonto(''); setPagoForma('Efectivo'); setPagoObs('')
+    setSavingPago(false)
+    setShowPagoModal(false)
+  }
 
   async function loadServicio(sid: string) {
     const { data: srv } = await supabase
@@ -137,6 +200,22 @@ export default function ServicioDetallePage() {
           </div>
         </div>
 
+        {/* Billetera de pagos */}
+        <BilleteraSection
+          servicio={servicio}
+          pagos={pagos}
+          onRegistrar={() => setShowPagoModal(true)}
+          onReimprimir={(pago) => {
+            const totalPagado = pagos.slice(0, pagos.indexOf(pago) + 1).reduce((s, p) => s + p.monto, 0)
+            const saldo = Math.max(0, (servicio.importe_servicio ?? 0) - totalPagado)
+            generarComprobantePago(
+              pago,
+              { numero_orden: servicio.numero_orden, fallecido_nombre: servicio.fallecido_nombre, importe_servicio: servicio.importe_servicio },
+              saldo,
+            )
+          }}
+        />
+
         {/* Formularios requeridos */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
@@ -221,6 +300,50 @@ export default function ServicioDetallePage() {
           ← Volver al panel
         </button>
       </div>
+
+      {/* Modal registrar pago */}
+      {showPagoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="font-semibold text-[#1B3A6B] mb-5">Registrar pago</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Monto ($)</label>
+                <input
+                  type="number" min={1} step={1000} value={pagoMonto} autoFocus
+                  onChange={e => setPagoMonto(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B]"
+                  placeholder="Ej: 500000"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Forma de pago</label>
+                <select value={pagoForma} onChange={e => setPagoForma(e.target.value as typeof FORMAS_PAGO[number])}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B]">
+                  {FORMAS_PAGO.map(f => <option key={f}>{f}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Observación (opcional)</label>
+                <input type="text" value={pagoObs} onChange={e => setPagoObs(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B3A6B]"
+                  placeholder="Ej: Cheque N° 001234" />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">Al confirmar se imprimirá el comprobante automáticamente.</p>
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowPagoModal(false)} disabled={savingPago}
+                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm disabled:opacity-60">
+                Cancelar
+              </button>
+              <button onClick={handleRegistrarPago} disabled={savingPago || !pagoMonto}
+                className="flex-1 py-3 rounded-xl bg-[#1B3A6B] text-white text-sm font-semibold disabled:opacity-60">
+                {savingPago ? 'Guardando...' : 'Confirmar e imprimir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageShell>
   )
 }
@@ -266,4 +389,95 @@ function fmtDt(iso: string | null | undefined): string {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+// ─── Billetera ────────────────────────────────────────────────────────────────
+
+function BilleteraSection({ servicio, pagos, onRegistrar, onReimprimir }: {
+  servicio: ServicioConDeudo
+  pagos: PagoServicio[]
+  onRegistrar: () => void
+  onReimprimir: (pago: PagoServicio) => void
+}) {
+  const importe = servicio.importe_servicio ?? 0
+  const totalPagado = pagos.reduce((s, p) => s + p.monto, 0)
+  const saldo = Math.max(0, importe - totalPagado)
+  const cancelado = importe > 0 && saldo === 0
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-[#B8956A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+          <h3 className="font-semibold text-[#1B3A6B] text-sm">Billetera de pagos</h3>
+          {cancelado && (
+            <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Cancelado</span>
+          )}
+        </div>
+        {!cancelado && (
+          <button onClick={onRegistrar}
+            className="text-xs bg-[#1B3A6B] text-white px-3 py-1.5 rounded-lg hover:bg-[#152e57] transition-colors">
+            + Registrar pago
+          </button>
+        )}
+      </div>
+
+      {/* Resumen */}
+      <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
+        <div className="px-5 py-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Importe total</p>
+          <p className="text-lg font-bold text-gray-800">
+            {importe > 0 ? `$${formatMonto(importe)}` : '—'}
+          </p>
+        </div>
+        <div className="px-5 py-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Total pagado</p>
+          <p className="text-lg font-bold text-emerald-700">${formatMonto(totalPagado)}</p>
+        </div>
+        <div className="px-5 py-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Saldo pendiente</p>
+          <p className={`text-lg font-bold ${cancelado ? 'text-emerald-600' : saldo > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+            {importe > 0 ? (cancelado ? 'Cancelado' : `$${formatMonto(saldo)}`) : '—'}
+          </p>
+        </div>
+      </div>
+
+      {/* Lista de pagos */}
+      {pagos.length === 0 ? (
+        <div className="p-6 text-center text-gray-400 text-sm">Sin pagos registrados aún.</div>
+      ) : (
+        <ul className="divide-y divide-gray-50">
+          {pagos.map((p, idx) => {
+            const acum = pagos.slice(0, idx + 1).reduce((s, x) => s + x.monto, 0)
+            const saldoTras = Math.max(0, importe - acum)
+            return (
+              <li key={p.id} className="flex items-center gap-4 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">#{String(p.comprobante_nro).padStart(4, '0')}</span>
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p.forma_pago}</span>
+                    {p.observacion && <span className="text-xs text-gray-400 truncate">{p.observacion}</span>}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(p.fecha_pago).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    {importe > 0 && ` · Saldo tras pago: $${formatMonto(saldoTras)}`}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold text-emerald-700 flex-shrink-0">${formatMonto(p.monto)}</p>
+                <button onClick={() => onReimprimir(p)}
+                  title="Reimprimir comprobante"
+                  className="text-xs text-gray-400 hover:text-[#1B3A6B] px-2 py-1 flex-shrink-0 border border-gray-200 rounded-lg hover:border-[#1B3A6B] transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
+  )
 }

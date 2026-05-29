@@ -153,3 +153,14 @@ export type ConfiguracionComisiones = {
   monto_fijo_obra_social: number
   updated_at: string
 }
+
+export type PagoServicio = {
+  id: string
+  servicio_id: string
+  monto: number
+  forma_pago: 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Otro'
+  observacion: string | null
+  comprobante_nro: number
+  fecha_pago: string
+  created_at: string
+}

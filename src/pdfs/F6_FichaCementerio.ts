@@ -148,7 +148,6 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   const fs  = splitFecha(s.fecha_servicio)
   const fd  = splitFecha(s.fallecido_fecha_deceso)
   const doc = s.documentacion
-  const hoy = new Date()
   const sala = (s.sala ?? '').toLowerCase()
 
   // — Número de orden —

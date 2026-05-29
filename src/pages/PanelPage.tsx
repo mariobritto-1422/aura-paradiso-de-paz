@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
 import { supabase, type DeudoFichado, type Servicio, type Comision } from '../lib/supabase'
+import { formatMonto } from '../lib/format'
 
 const FORM_URL_SOL = `${window.location.origin}/?rol=solicitante`
 const FORM_URL_GAR = `${window.location.origin}/?rol=garante`
@@ -131,6 +132,7 @@ export default function PanelPage() {
   const qrSolRef = useRef<HTMLDivElement>(null)
   const qrGarRef = useRef<HTMLDivElement>(null)
 
+  const [pagosTotales, setPagosTotales] = useState<Map<string, number>>(new Map())
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(getStoredSession)
   const [showSessionModal, setShowSessionModal] = useState(!getStoredSession())
   const [deleteTarget, setDeleteTarget] = useState<Servicio | null>(null)
@@ -145,6 +147,7 @@ export default function PanelPage() {
     loadSessions()
     loadServicios()
     loadComisiones()
+    loadPagosTotales()
 
     const channel = supabase
       .channel('deudos_realtime')
@@ -183,6 +186,18 @@ export default function PanelPage() {
       .order('created_at', { ascending: false })
       .limit(50)
     if (data) setServicios(data as Servicio[])
+  }
+
+  async function loadPagosTotales() {
+    const { data } = await supabase
+      .from('pagos_servicio')
+      .select('servicio_id, monto')
+    if (!data) return
+    const map = new Map<string, number>()
+    for (const p of data as { servicio_id: string; monto: number }[]) {
+      map.set(p.servicio_id, (map.get(p.servicio_id) ?? 0) + p.monto)
+    }
+    setPagosTotales(map)
   }
 
   async function loadComisiones() {
@@ -374,13 +389,38 @@ export default function PanelPage() {
                         {new Date(s.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <button
                             onClick={() => navigate(`/servicio/${s.id}`)}
                             className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-2.5 py-1 rounded-lg hover:bg-[#B8956A]/10 transition-colors"
                           >
                             Documentos
                           </button>
+                          {(() => {
+                            const importe = s.importe_servicio ?? 0
+                            if (!importe) return null
+                            const pagado = pagosTotales.get(s.id) ?? 0
+                            const saldo = importe - pagado
+                            if (saldo <= 0) {
+                              return (
+                                <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                                  Cancelado
+                                </span>
+                              )
+                            }
+                            return (
+                              <button
+                                onClick={() => navigate(`/servicio/${s.id}`)}
+                                title={`Saldo pendiente: $${formatMonto(saldo)}`}
+                                className="flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg hover:bg-amber-100 transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                                ${formatMonto(saldo)}
+                              </button>
+                            )
+                          })()}
                           <button
                             onClick={() => requestDelete(s)}
                             className="text-xs text-red-400 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
