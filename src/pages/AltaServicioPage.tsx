@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, type DeudoFichado, type CatalogoItem } from '../lib/supabase'
+import { formatMonto } from '../lib/format'
 import { DeudoBuscador } from '../components/DeudoBuscador'
 import { StockSelector } from '../components/StockSelector'
 import { ComboSelect } from '../components/ComboSelect'
@@ -834,25 +835,27 @@ export default function AltaServicioPage() {
                 </Field>
               </div>
 
-              {/* Ataúd / Urna — selector unificado */}
+              {/* Ataúd / Urna — selector inteligente */}
               {stockTipo && (
                 <div className="sm:col-span-2">
                   <Field label={stockTipo === 'ataud' ? 'Ataúd' : 'Urna'}>
                     <StockSelector
                       tipo={stockTipo}
                       value={form.ataud_urna_id}
-                      onChange={(id, modelo) => {
+                      onChange={(id, modelo, medida, ancho) => {
                         set('ataud_urna_id', id)
                         if (modelo) set('ataud_tipo', modelo)
+                        if (medida != null) set('ataud_medida', String(medida))
+                        if (ancho) set('ataud_ancho', ancho)
                       }}
                     />
                   </Field>
                   {form.ataud_urna_id && (
                     <div className="grid grid-cols-2 gap-3 mt-3">
-                      <Field label="Medida">
+                      <Field label="Medida (cm)">
                         <input type="number" min={1} value={form.ataud_medida}
                           onChange={e => set('ataud_medida', e.target.value)}
-                          className={IC} placeholder="Ej: 15, 16, 17..." />
+                          className={IC} placeholder="Auto o ingresar manualmente" />
                       </Field>
                       <Field label="Ancho">
                         <select value={form.ataud_ancho}
@@ -1014,7 +1017,7 @@ export default function AltaServicioPage() {
             {/* Preview comisión */}
             {form.tipo_afiliacion === 'Obra Social' && comisionCfg && (
               <p className="text-xs text-emerald-600 mt-2">
-                Comisión fija obra social: ${(comisionCfg.monto_fijo_obra_social).toLocaleString('es-AR')}
+                Comisión fija obra social: ${formatMonto(comisionCfg.monto_fijo_obra_social)}
               </p>
             )}
             {form.tipo_afiliacion === 'Particular' && form.importe_servicio && comisionCfg && (
@@ -1027,11 +1030,11 @@ export default function AltaServicioPage() {
                   const monto = Math.round(excedente * porc / 100)
                   return (
                     <p className="text-xs text-emerald-600 mt-2">
-                      Comisión estimada ({porc}% sobre excedente ${excedente.toLocaleString('es-AR')}): ${monto.toLocaleString('es-AR')}
+                      Comisión estimada ({porc}% sobre excedente ${formatMonto(excedente)}): ${formatMonto(monto)}
                     </p>
                   )
                 }
-                return <p className="text-xs text-gray-400 mt-2">Importe por debajo de la base mínima (${base.toLocaleString('es-AR')}). Sin comisión.</p>
+                return <p className="text-xs text-gray-400 mt-2">Importe por debajo de la base mínima (${formatMonto(base)}). Sin comisión.</p>
               })()
             )}
           </Section>

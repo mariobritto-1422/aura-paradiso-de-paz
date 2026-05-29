@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, type CatalogoItem, type StockItem, type CatalogoAsesor, type ConfiguracionComisiones } from '../lib/supabase'
+import { formatMonto } from '../lib/format'
+import { useAuth } from '../lib/auth'
 
-type Tab = 'ataud' | 'preparador' | 'asesor' | 'destino' | 'comisiones'
+type Tab = 'ataud' | 'preparador' | 'asesor' | 'destino' | 'comisiones' | 'usuarios'
 
 const IC = 'border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1B3A6B]'
 
 export default function ConfiguracionPage() {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
+  const isAdmin = user?.rol === 'administrador'
   const [tab, setTab] = useState<Tab>('ataud')
 
   const TABS: [Tab, string][] = [
@@ -16,7 +20,13 @@ export default function ConfiguracionPage() {
     ['asesor', 'Asesores'],
     ['destino', 'Destinos'],
     ['comisiones', 'Comisiones'],
+    ['usuarios', 'Usuarios'],
   ]
+
+  async function handleLogout() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -27,29 +37,22 @@ export default function ConfiguracionPage() {
         </div>
         <div className="flex-1">
           <h1 className="font-semibold text-sm">Configuración</h1>
-          <p className="text-[#B8956A] text-xs">Paraíso de Paz — Catálogos</p>
+          <p className="text-[#B8956A] text-xs">Paraíso de Paz — {user?.nombre}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => navigate('/panel')}
             className="text-xs text-[#B8956A] border border-[#B8956A]/40 px-3 py-1.5 rounded-lg hover:bg-white/10">
             ← Panel
           </button>
-          <button
-            onClick={() => {
-              localStorage.removeItem('aura_panel_auth')
-              localStorage.removeItem('aura_session_user')
-              window.location.href = '/panel'
-            }}
-            className="text-xs text-white/60 border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-          >
+          <button onClick={handleLogout}
+            className="text-xs text-white/60 border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
             Cerrar sesión
           </button>
         </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        {/* Tabs — 2 filas en mobile */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 bg-white rounded-xl p-1 shadow-sm">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 bg-white rounded-xl p-1 shadow-sm">
           {TABS.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${tab === t
@@ -61,11 +64,12 @@ export default function ConfiguracionPage() {
           ))}
         </div>
 
-        {tab === 'ataud'      && <StockTab />}
+        {tab === 'ataud'      && <StockTab isAdmin={isAdmin} />}
         {tab === 'preparador' && <CatalogoTab tabla="catalogos_preparador" label="Preparador" withWhatsapp />}
         {tab === 'asesor'     && <AsesorTab />}
         {tab === 'destino'    && <CatalogoTab tabla="catalogos_destino" label="Destino" />}
         {tab === 'comisiones' && <ComisionesTab />}
+        {tab === 'usuarios'   && <UsuariosTab />}
       </div>
     </div>
   )
@@ -73,11 +77,15 @@ export default function ConfiguracionPage() {
 
 // ─── Stock (Ataúdes) ──────────────────────────────────────────────────────────
 
-function StockTab() {
-  const [items, setItems] = useState<StockItem[]>([])
+type StockItemExt = StockItem & { medida?: number | null; ancho?: string | null }
+
+function StockTab({ isAdmin }: { isAdmin: boolean }) {
+  const [items, setItems] = useState<StockItemExt[]>([])
   const [loading, setLoading] = useState(true)
   const [modelo, setModelo] = useState('')
   const [desc, setDesc] = useState('')
+  const [medida, setMedida] = useState('')
+  const [ancho, setAncho] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => { load() }, [])
@@ -85,7 +93,7 @@ function StockTab() {
   async function load() {
     setLoading(true)
     const { data } = await supabase.from('stock').select('*').eq('tipo', 'ataud').order('modelo')
-    setItems((data as StockItem[]) ?? [])
+    setItems((data as StockItemExt[]) ?? [])
     setLoading(false)
   }
 
@@ -94,14 +102,21 @@ function StockTab() {
     setSaving(true)
     const { data } = await supabase
       .from('stock')
-      .insert({ modelo: modelo.trim(), descripcion: desc.trim() || null, tipo: 'ataud', disponible: true })
+      .insert({
+        modelo: modelo.trim(),
+        descripcion: desc.trim() || null,
+        medida: medida ? parseFloat(medida) : null,
+        ancho: ancho || null,
+        tipo: 'ataud',
+        disponible: true,
+      })
       .select().single()
-    if (data) setItems(prev => [...prev, data as StockItem].sort((a, b) => a.modelo.localeCompare(b.modelo)))
-    setModelo(''); setDesc('')
+    if (data) setItems(prev => [...prev, data as StockItemExt].sort((a, b) => a.modelo.localeCompare(b.modelo)))
+    setModelo(''); setDesc(''); setMedida(''); setAncho('')
     setSaving(false)
   }
 
-  async function toggleDisponible(item: StockItem) {
+  async function toggleDisponible(item: StockItemExt) {
     await supabase.from('stock').update({ disponible: !item.disponible }).eq('id', item.id)
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, disponible: !i.disponible } : i))
   }
@@ -114,26 +129,42 @@ function StockTab() {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <CardHeader title="Stock de ataúdes" sub="Solo los disponibles aparecen en el formulario de alta." />
-      <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
-        <div className="flex gap-2">
-          <input value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Modelo *"
-            className={`flex-1 ${IC}`} />
-          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descripción (opc.)"
-            className={`flex-1 ${IC}`} />
-          <AddBtn onClick={add} disabled={saving || !modelo.trim()} saving={saving} />
+      <CardHeader
+        title="Stock de ataúdes"
+        sub={isAdmin ? 'Cargá modelo, medida y ancho. Solo los disponibles aparecen en alta.' : 'Solo lectura. Contactá al administrador para modificar el stock.'}
+      />
+      {isAdmin && (
+        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <input value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Modelo *"
+              className={IC} />
+            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descripción (opc.)"
+              className={IC} />
+            <input type="number" value={medida} onChange={e => setMedida(e.target.value)}
+              placeholder="Medida (ej: 180)" className={IC} />
+            <select value={ancho} onChange={e => setAncho(e.target.value)} className={IC}>
+              <option value="">Ancho (opc.)</option>
+              <option value="Estándar">Estándar</option>
+              <option value="SuperMedida">SuperMedida</option>
+            </select>
+          </div>
+          <div className="mt-2 flex justify-end">
+            <AddBtn onClick={add} disabled={saving || !modelo.trim()} saving={saving} />
+          </div>
         </div>
-      </div>
+      )}
       <ListBody loading={loading} empty="Sin ataúdes en stock.">
         {items.map(item => (
           <li key={item.id} className="flex items-center gap-3 px-5 py-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800">{item.modelo}</p>
-              {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+              <p className="text-xs text-gray-400">
+                {[item.descripcion, item.medida ? `${item.medida} cm` : null, item.ancho].filter(Boolean).join(' · ')}
+              </p>
             </div>
             <ToggleBtn active={item.disponible} labelOn="Disponible" labelOff="Sin stock"
-              onClick={() => toggleDisponible(item)} />
-            <RemoveBtn onClick={() => remove(item.id)} />
+              onClick={isAdmin ? () => toggleDisponible(item) : () => {}} />
+            {isAdmin && <RemoveBtn onClick={() => remove(item.id)} />}
           </li>
         ))}
       </ListBody>
@@ -381,7 +412,7 @@ function ComisionesTab() {
           </div>
           {previewParticular > 0 && (
             <div className="mt-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-700">
-              Ejemplo: base ${baseNum.toLocaleString('es-AR')} + excedente ${excedEjemplo.toLocaleString('es-AR')} → comisión ${previewParticular.toLocaleString('es-AR')} ({porc}%)
+              Ejemplo: base ${formatMonto(baseNum)} + excedente ${formatMonto(excedEjemplo)} → comisión ${formatMonto(previewParticular)} ({porc}%)
             </div>
           )}
         </div>
@@ -405,6 +436,87 @@ function ComisionesTab() {
           {saving ? 'Guardando...' : saved ? '✓ Guardado' : 'Guardar cambios'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─── Usuarios ────────────────────────────────────────────────────────────────
+
+type UsuarioSistema = {
+  id: string
+  nombre: string
+  email: string
+  rol: 'administrador' | 'operador'
+  activo: boolean
+  password_changed: boolean
+  created_at: string
+}
+
+function UsuariosTab() {
+  const [users, setUsers] = useState<UsuarioSistema[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { loadUsers() }, [])
+
+  async function loadUsers() {
+    setLoading(true)
+    const { data } = await supabase.from('usuarios_sistema').select('*').order('nombre')
+    setUsers((data as UsuarioSistema[]) ?? [])
+    setLoading(false)
+  }
+
+  async function toggleActivo(u: UsuarioSistema) {
+    await supabase.from('usuarios_sistema').update({ activo: !u.activo }).eq('id', u.id)
+    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, activo: !x.activo } : x))
+  }
+
+  async function cambiarRol(u: UsuarioSistema, nuevoRol: 'administrador' | 'operador') {
+    await supabase.from('usuarios_sistema').update({ rol: nuevoRol }).eq('id', u.id)
+    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, rol: nuevoRol } : x))
+  }
+
+  async function resetearContrasena(u: UsuarioSistema) {
+    if (!confirm(`¿Forzar cambio de contraseña para ${u.nombre}? La próxima vez que ingrese deberá elegir una nueva.`)) return
+    await supabase.from('usuarios_sistema').update({ password_changed: false }).eq('id', u.id)
+    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, password_changed: false } : x))
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <CardHeader
+        title="Usuarios del sistema"
+        sub="Gestioná roles y accesos. Para crear usuarios nuevos, usá el panel de Supabase Auth."
+      />
+      <ListBody loading={loading} empty="Sin usuarios registrados.">
+        {users.map(u => (
+          <li key={u.id} className="flex items-start gap-3 px-5 py-4 flex-wrap">
+            <div className="flex-1 min-w-[160px]">
+              <p className="text-sm font-medium text-gray-800">{u.nombre}</p>
+              <p className="text-xs text-gray-400">{u.email}</p>
+              {!u.password_changed && (
+                <p className="text-xs text-amber-600 mt-0.5">Pendiente cambio de contraseña</p>
+              )}
+            </div>
+            <select
+              value={u.rol}
+              onChange={e => cambiarRol(u, e.target.value as 'administrador' | 'operador')}
+              className="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-[#1B3A6B]"
+            >
+              <option value="administrador">Administrador</option>
+              <option value="operador">Operador</option>
+            </select>
+            <ToggleBtn active={u.activo} labelOn="Activo" labelOff="Inactivo"
+              onClick={() => toggleActivo(u)} />
+            <button
+              onClick={() => resetearContrasena(u)}
+              className="text-xs text-gray-400 hover:text-amber-600 px-2 py-1 flex-shrink-0"
+              title="Forzar cambio de contraseña en próximo login"
+            >
+              Reset pwd
+            </button>
+          </li>
+        ))}
+      </ListBody>
     </div>
   )
 }

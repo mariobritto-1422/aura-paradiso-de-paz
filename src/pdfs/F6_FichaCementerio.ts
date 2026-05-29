@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import type { ServicioConDeudo } from '../lib/supabase'
 import type { FormularioInfo } from './utils'
 import { txt, formatFecha } from './utils'
+import { formatMonto } from '../lib/format'
 
 // ─── COORDENADAS calibradas (mm en A4 210×297) — calibrado 2026-05-19 ────────
 
@@ -151,7 +152,7 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   const sala = (s.sala ?? '').toLowerCase()
 
   // — Número de orden —
-  txt(pdf, String(s.numero_orden), C.nro_registro.x, C.nro_registro.y)
+  txt(pdf, String(s.numero_orden), C.nro_registro.x, C.nro_registro.y, { size: 15 })
 
   // — Fecha encabezado —
   txt(pdf, fs.dia,  C.fecha_dia.x,  C.fecha_dia.y)
@@ -209,7 +210,7 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   txt(pdf, fs.hora,               C.serv_hora.x,      C.serv_hora.y)
 
   // — Importe —
-  if (s.importe_servicio) txt(pdf, String(s.importe_servicio), C.importe.x, C.importe.y)
+  if (s.importe_servicio) txt(pdf, formatMonto(s.importe_servicio), C.importe.x, C.importe.y)
 
   // — Documentación —
   X(pdf, doc?.acta_defuncion?.original,    C.doc_acta_orig.x, C.doc_acta_orig.y)
@@ -225,10 +226,7 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, doc?.carnet_obra_social?.original, C.doc_car_orig.x, C.doc_car_orig.y)
   X(pdf, doc?.carnet_obra_social?.copia,    C.doc_car_cop.x,  C.doc_car_cop.y)
 
-  // — Fecha y firma (columna derecha) —
-  txt(pdf, String(hoy.getDate()),                C.firma_dia.x,    C.firma_dia.y)
-  txt(pdf, MESES_LARGO[hoy.getMonth()],          C.firma_mes.x,    C.firma_mes.y)
-  txt(pdf, String(hoy.getFullYear()).slice(2),    C.firma_anio.x,   C.firma_anio.y)
+  // — Fecha y firma (columna derecha) — solo nombre y contacto del solicitante —
   txt(pdf, s.deudo?.nombre ?? '',               C.solicitante.x,  C.solicitante.y)
   txt(pdf, s.deudo?.whatsapp ?? s.deudo?.telefono ?? '', C.contacto.x, C.contacto.y)
 
