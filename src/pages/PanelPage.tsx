@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
 import { supabase, type DeudoFichado, type Servicio, type Comision } from '../lib/supabase'
 import { formatMonto } from '../lib/format'
+import { useAuth } from '../lib/auth'
 
 const FORM_URL_SOL = `${window.location.origin}/?rol=solicitante`
 const FORM_URL_GAR = `${window.location.origin}/?rol=garante`
@@ -124,6 +125,8 @@ function BlockedModal({ onClose, message }: { onClose: () => void; message: stri
 
 export default function PanelPage() {
   const navigate = useNavigate()
+  const { user: authUser } = useAuth()
+  const isAdmin = authUser?.rol === 'administrador'
   const [sessions, setSessions] = useState<DeudoFichado[]>([])
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [comisiones, setComisiones] = useState<Comision[]>([])
@@ -180,12 +183,19 @@ export default function PanelPage() {
   }
 
   async function loadServicios() {
-    const { data } = await supabase
+    let query = supabase
       .from('servicios')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(50)
-    if (data) setServicios(data as Servicio[])
+
+    // Operador solo ve sus propios servicios
+    if (authUser?.rol === 'operador' && authUser.nombre) {
+      query = query.eq('asesor', authUser.nombre)
+    }
+
+    const { data, error } = await query
+    if (!error && data) setServicios(data as Servicio[])
   }
 
   async function loadPagosTotales() {
@@ -332,10 +342,9 @@ export default function PanelPage() {
             </button>
           )}
           <button
-            onClick={() => {
-              localStorage.removeItem('aura_panel_auth')
-              localStorage.removeItem('aura_session_user')
-              window.location.href = '/panel'
+            onClick={async () => {
+              await supabase.auth.signOut()
+              navigate('/login', { replace: true })
             }}
             className="text-xs text-white/60 border border-white/20 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
           >
