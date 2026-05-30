@@ -65,6 +65,11 @@ const C = {
   testigo1_acl:      { x: 55.1,  y: 214.3 },
   testigo1_par:      { x: 55.2,  y: 220 },
 
+  // OTROS RESPONSABLES (garante) — coordenadas aproximadas, calibrar si es necesario
+  otros_resp_nombre:     { x: 55.1,  y: 228 },
+  otros_resp_dni:        { x: 55.2,  y: 234 },
+  otros_resp_parentesco: { x: 130,   y: 234 },
+
   // RETIRO DE CENIZAS
   retiro_fecha_dia:  { x: 91.8,  y: 239.2 },
   retiro_fecha_mes:  { x: 115.2, y: 239.2 },
@@ -147,6 +152,13 @@ function generarF4(pdf: jsPDF, s: ServicioConDeudo) {
   // — TESTIGOS (primer testigo = deudo) —
   txt(pdf, deudoNombre,                          C.testigo1_acl.x, C.testigo1_acl.y)
   txt(pdf, s.deudo?.relacion_fallecido ?? '',    C.testigo1_par.x, C.testigo1_par.y)
+
+  // — OTROS RESPONSABLES (garante) —
+  if (s.garante) {
+    txt(pdf, s.garante.nombre ?? '',               C.otros_resp_nombre.x,     C.otros_resp_nombre.y)
+    txt(pdf, s.garante.dni ?? '',                  C.otros_resp_dni.x,        C.otros_resp_dni.y)
+    txt(pdf, s.garante.relacion_fallecido ?? '',   C.otros_resp_parentesco.x, C.otros_resp_parentesco.y)
+  }
 
   // — RETIRO DE CENIZAS —
   txt(pdf, s.fallecido_nombre,     C.retiro_fallecido.x,   C.retiro_fallecido.y)

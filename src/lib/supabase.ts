@@ -96,6 +96,8 @@ export type Servicio = {
   garante_id: string | null
   importe_servicio: number | null
   tipo_afiliacion: string | null
+  hora_velatorio: string | null
+  adicional_obra_social: number | null
 }
 
 export type Usuario = {

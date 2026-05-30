@@ -4,7 +4,7 @@ import { supabase, type CatalogoItem, type StockItem, type CatalogoAsesor, type 
 import { formatMonto } from '../lib/format'
 import { useAuth } from '../lib/auth'
 
-type Tab = 'ataud' | 'preparador' | 'asesor' | 'destino' | 'comisiones' | 'usuarios'
+type Tab = 'ataud' | 'urna' | 'preparador' | 'asesor' | 'destino' | 'comisiones' | 'usuarios'
 
 const IC = 'border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#1B3A6B]'
 
@@ -16,6 +16,7 @@ export default function ConfiguracionPage() {
 
   const TABS: [Tab, string][] = [
     ['ataud', 'Ataúdes'],
+    ['urna', 'Urnas'],
     ['preparador', 'Preparadores'],
     ['asesor', 'Asesores'],
     ['destino', 'Destinos'],
@@ -52,7 +53,7 @@ export default function ConfiguracionPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 bg-white rounded-xl p-1 shadow-sm">
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 bg-white rounded-xl p-1 shadow-sm">
           {TABS.map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${tab === t
@@ -65,6 +66,7 @@ export default function ConfiguracionPage() {
         </div>
 
         {tab === 'ataud'      && <StockTab isAdmin={isAdmin} />}
+        {tab === 'urna'       && <UrnaTab />}
         {tab === 'preparador' && <CatalogoTab tabla="catalogos_preparador" label="Preparador" withWhatsapp />}
         {tab === 'asesor'     && <AsesorTab />}
         {tab === 'destino'    && <CatalogoTab tabla="catalogos_destino" label="Destino" />}
@@ -165,6 +167,81 @@ function StockTab({ isAdmin }: { isAdmin: boolean }) {
             <ToggleBtn active={item.disponible} labelOn="Disponible" labelOff="Sin stock"
               onClick={isAdmin ? () => toggleDisponible(item) : () => {}} />
             {isAdmin && <RemoveBtn onClick={() => remove(item.id)} />}
+          </li>
+        ))}
+      </ListBody>
+    </div>
+  )
+}
+
+// ─── Urnas (catálogo simple sin stock) ───────────────────────────────────────
+
+type UrnaItem = { id: string; modelo: string; descripcion: string | null; activo: boolean }
+
+function UrnaTab() {
+  const [items, setItems] = useState<UrnaItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modelo, setModelo] = useState('')
+  const [desc, setDesc] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase.from('catalogos_urna').select('*').order('modelo')
+    setItems((data as UrnaItem[]) ?? [])
+    setLoading(false)
+  }
+
+  async function add() {
+    if (!modelo.trim()) return
+    setSaving(true)
+    const { data } = await supabase
+      .from('catalogos_urna')
+      .insert({ modelo: modelo.trim(), descripcion: desc.trim() || null, activo: true })
+      .select().single()
+    if (data) setItems(prev => [...prev, data as UrnaItem].sort((a, b) => a.modelo.localeCompare(b.modelo)))
+    setModelo(''); setDesc('')
+    setSaving(false)
+  }
+
+  async function toggleActivo(item: UrnaItem) {
+    await supabase.from('catalogos_urna').update({ activo: !item.activo }).eq('id', item.id)
+    setItems(prev => prev.map(i => i.id === item.id ? { ...i, activo: !i.activo } : i))
+  }
+
+  async function remove(id: string) {
+    if (!confirm('¿Eliminar esta urna?')) return
+    await supabase.from('catalogos_urna').delete().eq('id', id)
+    setItems(prev => prev.filter(i => i.id !== id))
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <CardHeader title="Catálogo de urnas" sub="Solo las activas aparecen en el formulario de alta." />
+      <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input value={modelo} onChange={e => setModelo(e.target.value)} placeholder="Modelo *"
+            onKeyDown={e => e.key === 'Enter' && add()}
+            className={IC} />
+          <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Descripción (opcional)"
+            className={IC} />
+        </div>
+        <div className="mt-2 flex justify-end">
+          <AddBtn onClick={add} disabled={saving || !modelo.trim()} saving={saving} />
+        </div>
+      </div>
+      <ListBody loading={loading} empty="Sin urnas registradas.">
+        {items.map(item => (
+          <li key={item.id} className="flex items-center gap-3 px-5 py-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-800">{item.modelo}</p>
+              {item.descripcion && <p className="text-xs text-gray-400">{item.descripcion}</p>}
+            </div>
+            <ToggleBtn active={item.activo} labelOn="Activo" labelOff="Inactivo"
+              onClick={() => toggleActivo(item)} />
+            <RemoveBtn onClick={() => remove(item.id)} />
           </li>
         ))}
       </ListBody>

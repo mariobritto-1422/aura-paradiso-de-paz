@@ -49,8 +49,8 @@ const C = {
   cb_sala_paraiso: { x: 121.6, y: 102.6 },
   cb_sala_fenix:   { x: 197.3, y: 102.3 },
 
-  capilla_ardiente: { x: 45.8,  y: 108.6 },
-  hora_inicio:      { x: 168.5, y: 107.2 },
+  capilla_ardiente:  { x: 45.8,  y: 108.6 },
+  hora_inicio:       { x: 168.5, y: 107.2 },  // hora inicio del VELATORIO (hora_velatorio)
 
   cb_tanatostetica: { x: 44.4,  y: 119.6 },
   cb_tanatopraxia:  { x: 85.3,  y: 119.4 },
@@ -79,6 +79,7 @@ const C = {
   entrega:          { x: 107.5, y: 152.3 },
   saldo:            { x: 163.4, y: 152.3 },
   forma_pago:       { x: 73.4,  y: 158.2 },
+  adicional_os:     { x: 163.4, y: 158.2 },  // adicional obra social — calibrar posición si es necesario
 
   // Documentación — ORIGINAL y COPIA
   doc_acta_orig:   { x: 82.5,  y: 177.3 }, doc_acta_cop:  { x: 101.9, y: 177.1 },
@@ -187,11 +188,12 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, sala.includes('paraiso') || sala.includes('paraíso'), C.cb_sala_paraiso.x, C.cb_sala_paraiso.y)
   X(pdf, sala.includes('eterno') || sala.includes('descanso'), C.cb_sala_eterno.x,  C.cb_sala_eterno.y)
 
-  // — Capilla y hora de inicio —
+  // — Capilla y hora de inicio del velatorio —
   if (s.capilla_ardiente && s.capilla_ardiente !== 'Ninguna') {
     txt(pdf, s.capilla_ardiente, C.capilla_ardiente.x, C.capilla_ardiente.y)
   }
-  txt(pdf, fs.hora, C.hora_inicio.x, C.hora_inicio.y)
+  const horaVelatorio = s.hora_velatorio ? s.hora_velatorio.slice(0, 5) : ''
+  txt(pdf, horaVelatorio, C.hora_inicio.x, C.hora_inicio.y)
 
   // — Servicios adicionales y vehículos —
   X(pdf, s.tanatostetica,    C.cb_tanatostetica.x, C.cb_tanatostetica.y)
@@ -210,6 +212,9 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
 
   // — Importe —
   if (s.importe_servicio) txt(pdf, formatMonto(s.importe_servicio), C.importe.x, C.importe.y)
+  if (s.adicional_obra_social && s.adicional_obra_social > 0) {
+    txt(pdf, formatMonto(s.adicional_obra_social), C.adicional_os.x, C.adicional_os.y)
+  }
 
   // — Documentación —
   X(pdf, doc?.acta_defuncion?.original,    C.doc_acta_orig.x, C.doc_acta_orig.y)

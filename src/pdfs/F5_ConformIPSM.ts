@@ -60,6 +60,7 @@ function generarF5(pdf: jsPDF, s: ServicioConDeudo) {
   txt(pdf, s.fallecido_nombre,              C.ben_apellido_nombre.x, C.ben_apellido_nombre.y)
   txt(pdf, s.fallecido_dni ?? '',           C.ben_dni.x,             C.ben_dni.y)
   txt(pdf, s.fallecido_beneficio_nro ?? '', C.ben_nro_afiliado.x,    C.ben_nro_afiliado.y)
+  txt(pdf, s.deudo?.domicilio ?? '',        C.ben_domicilio.x,       C.ben_domicilio.y)
   txt(pdf, 'Posadas',                       C.ben_localidad.x,       C.ben_localidad.y)
   txt(pdf, 'Misiones',                      C.ben_pcia.x,            C.ben_pcia.y)
 

@@ -58,6 +58,7 @@ type ServicioForm = {
   sala: string; sala_domicilio: string
   capilla_ardiente: string; tipo_entierro: string
   preparador: string
+  hora_velatorio: string
   furgon_sanitario: boolean; coche_funebre: boolean; coche_funebre_tipo: string
   coche_porta_corona: boolean; coche_acompanamiento: boolean; refrigerador: boolean
   tanatostetica: boolean; tanatopraxia: boolean
@@ -74,6 +75,7 @@ type ServicioForm = {
   asesor: string; asesor_custom: string
   importe_servicio: string
   tipo_afiliacion: string
+  adicional_obra_social: string
 }
 
 const EMPTY: ServicioForm = {
@@ -89,6 +91,7 @@ const EMPTY: ServicioForm = {
   sala: '', sala_domicilio: '',
   capilla_ardiente: '', tipo_entierro: '',
   preparador: '',
+  hora_velatorio: '',
   furgon_sanitario: false, coche_funebre: false, coche_funebre_tipo: '',
   coche_porta_corona: false, coche_acompanamiento: false, refrigerador: false,
   tanatostetica: false, tanatopraxia: false,
@@ -104,6 +107,7 @@ const EMPTY: ServicioForm = {
   asesor: '', asesor_custom: '',
   importe_servicio: '',
   tipo_afiliacion: '',
+  adicional_obra_social: '',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -416,6 +420,7 @@ export default function AltaServicioPage() {
   const [preparadores, setPreparadores] = useState<string[]>([])
   const [destinos, setDestinos] = useState<string[]>([])
   const [asesores, setAsesores] = useState<{ nombre: string; whatsapp: string | null }[]>([])
+  const [urnas, setUrnas] = useState<string[]>([])
   const [comisionCfg, setComisionCfg] = useState<{ base_minima: number; porcentaje: number; monto_fijo_obra_social: number } | null>(null)
 
   useEffect(() => {
@@ -433,6 +438,10 @@ export default function AltaServicioPage() {
           setAsesores(data as { nombre: string; whatsapp: string | null }[])
         else
           setAsesores(STAFF.map(n => ({ nombre: n, whatsapp: null })))
+      })
+    supabase.from('catalogos_urna').select('modelo').eq('activo', true).order('modelo')
+      .then(({ data }) => {
+        if (data && data.length > 0) setUrnas(data.map((r: { modelo: string }) => r.modelo))
       })
     supabase.from('configuracion_comisiones').select('base_minima,porcentaje,monto_fijo_obra_social').single()
       .then(({ data }) => { if (data) setComisionCfg(data as typeof comisionCfg) })
@@ -537,6 +546,8 @@ export default function AltaServicioPage() {
       estado:                      'activo',
       importe_servicio:            form.importe_servicio ? parseFloat(form.importe_servicio) : null,
       tipo_afiliacion:             form.tipo_afiliacion || null,
+      hora_velatorio:              form.hora_velatorio || null,
+      adicional_obra_social:       form.adicional_obra_social ? parseFloat(form.adicional_obra_social) : 0,
     }
 
     const { data, error } = await supabase
@@ -552,7 +563,7 @@ export default function AltaServicioPage() {
       return
     }
 
-    if (form.ataud_urna_id) {
+    if (form.ataud_urna_id && form.tipo_servicio === 'Sepelio') {
       await supabase.from('stock').update({ disponible: false }).eq('id', form.ataud_urna_id)
     }
 
@@ -572,6 +583,10 @@ export default function AltaServicioPage() {
 
       if (tipoAfiliacion === 'Obra Social') {
         const montoFijo = (cfg as typeof comisionCfg)?.monto_fijo_obra_social ?? 15000
+        const adicional = form.adicional_obra_social ? parseFloat(form.adicional_obra_social) : 0
+        const porcAdicional = (cfg as typeof comisionCfg)?.porcentaje ?? 3
+        const comisionAdicional = adicional > 0 ? Math.round(adicional * porcAdicional / 100) : 0
+        const totalComision = montoFijo + comisionAdicional
         const { data: comision } = await supabase
           .from('comisiones')
           .insert({
@@ -580,7 +595,7 @@ export default function AltaServicioPage() {
             asesor_whatsapp: asesorObj?.whatsapp ?? null,
             importe_servicio: null,
             porcentaje: null,
-            monto_comision: montoFijo,
+            monto_comision: totalComision,
             fecha_servicio: fechaServicio,
             tipo: 'obra_social',
           })
@@ -594,7 +609,7 @@ export default function AltaServicioPage() {
               comision_id: (comision as { id: string }).id,
               asesor_nombre: asesorFinal,
               asesor_whatsapp: asesorObj?.whatsapp ?? null,
-              monto_comision: montoFijo,
+              monto_comision: totalComision,
               fecha_servicio: fechaServicio,
               tipo: 'obra_social',
             }),
@@ -820,13 +835,18 @@ export default function AltaServicioPage() {
                 }
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Fecha y hora del servicio">
+                <Field label="Fecha y hora del servicio (sepelio / cremación)">
                   <DateTimeInput
                     value={form.fecha_servicio}
                     onChange={iso => set('fecha_servicio', iso)}
                   />
                 </Field>
               </div>
+              <Field label="Hora inicio del velatorio">
+                <input type="time" value={form.hora_velatorio}
+                  onChange={e => set('hora_velatorio', e.target.value)}
+                  className={IC} />
+              </Field>
               <div className="sm:col-span-2">
                 <Field label="Destino final">
                   <ComboSelect options={destinos} value={form.destino_final}
@@ -835,12 +855,12 @@ export default function AltaServicioPage() {
                 </Field>
               </div>
 
-              {/* Ataúd / Urna — selector inteligente */}
-              {stockTipo && (
+              {/* Ataúd — selector de stock */}
+              {stockTipo === 'ataud' && (
                 <div className="sm:col-span-2">
-                  <Field label={stockTipo === 'ataud' ? 'Ataúd' : 'Urna'}>
+                  <Field label="Ataúd">
                     <StockSelector
-                      tipo={stockTipo}
+                      tipo="ataud"
                       value={form.ataud_urna_id}
                       onChange={(id, modelo, medida, ancho) => {
                         set('ataud_urna_id', id)
@@ -867,6 +887,19 @@ export default function AltaServicioPage() {
                       </Field>
                     </div>
                   )}
+                </div>
+              )}
+              {/* Urna — selector desde catálogo configurable */}
+              {stockTipo === 'urna' && (
+                <div className="sm:col-span-2">
+                  <Field label="Urna">
+                    <ComboSelect
+                      options={urnas}
+                      value={form.ataud_tipo}
+                      onChange={v => { set('ataud_tipo', v); set('ataud_urna_id', '') }}
+                      placeholder="Seleccionar modelo de urna..."
+                    />
+                  </Field>
                 </div>
               )}
             </div>
@@ -1004,6 +1037,14 @@ export default function AltaServicioPage() {
                   onChange={e => set('importe_servicio', e.target.value)}
                   className={IC} placeholder="Ej: 850000" />
               </Field>
+              {form.tipo_afiliacion === 'Obra Social' && (
+                <Field label="Adicional $">
+                  <input type="number" min={0} step={1000}
+                    value={form.adicional_obra_social}
+                    onChange={e => set('adicional_obra_social', e.target.value)}
+                    className={IC} placeholder="Monto extra sobre la cobertura" />
+                </Field>
+              )}
             </div>
             {form.asesor === 'Otro' && (
               <div className="mt-3">
@@ -1016,9 +1057,19 @@ export default function AltaServicioPage() {
             )}
             {/* Preview comisión */}
             {form.tipo_afiliacion === 'Obra Social' && comisionCfg && (
-              <p className="text-xs text-emerald-600 mt-2">
-                Comisión fija obra social: ${formatMonto(comisionCfg.monto_fijo_obra_social)}
-              </p>
+              (() => {
+                const montoFijo = comisionCfg.monto_fijo_obra_social
+                const adicional = form.adicional_obra_social ? parseFloat(form.adicional_obra_social) : 0
+                const comisionAdicional = adicional > 0 ? Math.round(adicional * comisionCfg.porcentaje / 100) : 0
+                const total = montoFijo + comisionAdicional
+                return (
+                  <p className="text-xs text-emerald-600 mt-2">
+                    Comisión obra social: ${formatMonto(montoFijo)} fija
+                    {adicional > 0 && ` + ${comisionCfg.porcentaje}% sobre adicional $${formatMonto(adicional)} = $${formatMonto(comisionAdicional)}`}
+                    {' '}→ Total: ${formatMonto(total)}
+                  </p>
+                )
+              })()
             )}
             {form.tipo_afiliacion === 'Particular' && form.importe_servicio && comisionCfg && (
               (() => {
