@@ -76,6 +76,7 @@ type ServicioForm = {
   importe_servicio: string
   tipo_afiliacion: string
   adicional_obra_social: string
+  domicilio_velatorio: string
 }
 
 const EMPTY: ServicioForm = {
@@ -108,6 +109,7 @@ const EMPTY: ServicioForm = {
   importe_servicio: '',
   tipo_afiliacion: '',
   adicional_obra_social: '',
+  domicilio_velatorio: '',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -532,7 +534,8 @@ export default function AltaServicioPage() {
       ataud_medida:                form.ataud_medida ? parseInt(form.ataud_medida) : null,
       ataud_ancho:                 form.ataud_ancho || null,
       sala:                        form.sala || null,
-      sala_domicilio:              form.sala === 'Domicilio' ? form.sala_domicilio || null : null,
+      sala_domicilio:              form.sala === 'Domicilio' ? form.domicilio_velatorio || null : null,
+      domicilio_velatorio:         form.sala === 'Domicilio' ? form.domicilio_velatorio || null : null,
       capilla_ardiente:            form.capilla_ardiente || null,
       tipo_entierro:               form.tipo_entierro || null,
       preparador:                  form.preparador || null,
@@ -804,13 +807,15 @@ export default function AltaServicioPage() {
                   {['Sepelio', 'Cremación', 'Traslado'].map(o => <option key={o}>{o}</option>)}
                 </select>
               </Field>
-              <Field label="Capilla ardiente">
-                <select value={form.capilla_ardiente}
-                  onChange={e => set('capilla_ardiente', e.target.value)} className={IC}>
-                  <option value="">Seleccionar...</option>
-                  {CAPILLAS.map(o => <option key={o}>{o}</option>)}
-                </select>
-              </Field>
+              {form.sala !== 'Domicilio' && (
+                <Field label="Capilla ardiente">
+                  <select value={form.capilla_ardiente}
+                    onChange={e => set('capilla_ardiente', e.target.value)} className={IC}>
+                    <option value="">Seleccionar...</option>
+                    {CAPILLAS.map(o => <option key={o}>{o}</option>)}
+                  </select>
+                </Field>
+              )}
               <Field label="Sala asignada">
                 <select value={form.sala}
                   onChange={e => set('sala', e.target.value)} className={IC}>
@@ -819,10 +824,10 @@ export default function AltaServicioPage() {
                 </select>
               </Field>
               {form.sala === 'Domicilio' && (
-                <Field label="Dirección del domicilio">
-                  <input type="text" value={form.sala_domicilio}
-                    onChange={e => set('sala_domicilio', e.target.value)}
-                    className={IC} placeholder="Calle, número, localidad..." />
+                <Field label="Dirección del velatorio">
+                  <input type="text" value={form.domicilio_velatorio}
+                    onChange={e => set('domicilio_velatorio', e.target.value)}
+                    className={IC} placeholder="Calle, número, barrio..." />
                 </Field>
               )}
               <Field label="Tipo de entierro">

@@ -188,8 +188,10 @@ function generarF6(pdf: jsPDF, s: ServicioConDeudo) {
   X(pdf, sala.includes('paraiso') || sala.includes('paraíso'), C.cb_sala_paraiso.x, C.cb_sala_paraiso.y)
   X(pdf, sala.includes('eterno') || sala.includes('descanso'), C.cb_sala_eterno.x,  C.cb_sala_eterno.y)
 
-  // — Capilla y hora de inicio del velatorio —
-  if (s.capilla_ardiente && s.capilla_ardiente !== 'Ninguna') {
+  // — Capilla / domicilio del velatorio y hora de inicio —
+  if (s.sala?.toLowerCase() === 'domicilio') {
+    txt(pdf, s.domicilio_velatorio ?? '', C.capilla_ardiente.x, C.capilla_ardiente.y)
+  } else if (s.capilla_ardiente && s.capilla_ardiente !== 'Ninguna') {
     txt(pdf, s.capilla_ardiente, C.capilla_ardiente.x, C.capilla_ardiente.y)
   }
   const horaVelatorio = s.hora_velatorio ? s.hora_velatorio.slice(0, 5) : ''

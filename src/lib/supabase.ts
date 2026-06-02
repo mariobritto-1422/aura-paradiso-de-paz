@@ -98,6 +98,7 @@ export type Servicio = {
   tipo_afiliacion: string | null
   hora_velatorio: string | null
   adicional_obra_social: number | null
+  domicilio_velatorio: string | null
 }
 
 export type Usuario = {
