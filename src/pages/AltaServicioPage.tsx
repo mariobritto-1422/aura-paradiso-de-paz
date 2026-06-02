@@ -286,13 +286,14 @@ function FicharModal({ onClose, onSuccess }: {
   )
 }
 
-function ConfirmModal({ form, deudo, garante, onCancel, onConfirm, saving }: {
+function ConfirmModal({ form, deudo, garante, onCancel, onConfirm, saving, saveError }: {
   form: ServicioForm
   deudo: DeudoFichado | null
   garante: DeudoFichado | null
   onCancel: () => void
   onConfirm: () => void
   saving: boolean
+  saveError: string | null
 }) {
   const asesorDisplay = form.asesor === 'Otro' ? form.asesor_custom : form.asesor
   const salaDisplay = form.sala === 'Domicilio'
@@ -324,6 +325,11 @@ function ConfirmModal({ form, deudo, garante, onCancel, onConfirm, saving }: {
             </div>
           ))}
         </div>
+        {saveError && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            <strong>Error al guardar:</strong> {saveError}
+          </div>
+        )}
         <div className="flex gap-3">
           <button type="button" onClick={onCancel} disabled={saving}
             className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm disabled:opacity-60">
@@ -411,6 +417,7 @@ export default function AltaServicioPage() {
   const [selectedDeudo, setSelectedDeudo] = useState<DeudoFichado | null>(null)
   const [selectedGarante, setSelectedGarante] = useState<DeudoFichado | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showFichar, setShowFichar] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [screen, setScreen] = useState<'form' | 'success'>('form')
@@ -496,6 +503,7 @@ export default function AltaServicioPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setSaveError(null)
     setShowConfirm(true)
   }
 
@@ -558,8 +566,7 @@ export default function AltaServicioPage() {
 
     if (error || !data) {
       setSaving(false)
-      setShowConfirm(false)
-      alert('Error al guardar. Por favor reintente.')
+      setSaveError(error?.message ?? 'Error desconocido al guardar. Por favor reintente.')
       return
     }
 
@@ -1112,9 +1119,10 @@ export default function AltaServicioPage() {
           form={form}
           deudo={selectedDeudo}
           garante={selectedGarante}
-          onCancel={() => setShowConfirm(false)}
+          onCancel={() => { setShowConfirm(false); setSaveError(null) }}
           onConfirm={handleConfirm}
           saving={saving}
+          saveError={saveError}
         />
       )}
     </div>
