@@ -22,6 +22,7 @@ export default function ServicioDetallePage() {
   const [pagoForma, setPagoForma] = useState<typeof FORMAS_PAGO[number]>('Efectivo')
   const [pagoObs, setPagoObs] = useState('')
   const [savingPago, setSavingPago] = useState(false)
+  const [pagoError, setPagoError] = useState<string | null>(null)
 
   const formularios = servicio ? getFormulariosRequeridos(servicio) : []
 
@@ -61,8 +62,9 @@ export default function ServicioDetallePage() {
     const monto = parseFloat(pagoMonto)
     if (isNaN(monto) || monto <= 0) return
     setSavingPago(true)
+    setPagoError(null)
 
-    const { data: nuevoPago } = await supabase
+    const { data: nuevoPago, error: pagoErr } = await supabase
       .from('pagos_servicio')
       .insert({
         servicio_id: servicio.id,
@@ -73,24 +75,27 @@ export default function ServicioDetallePage() {
       .select('*')
       .single()
 
-    if (nuevoPago) {
-      const nuevosPagos = [...pagos, nuevoPago as PagoServicio]
-      setPagos(nuevosPagos)
-      const totalPagado = nuevosPagos.reduce((s, p) => s + p.monto, 0)
-      const saldoRestante = Math.max(0, (servicio.importe_servicio ?? 0) - totalPagado)
-
-      // Marcar como cancelado si saldo = 0
-      if (servicio.importe_servicio && saldoRestante === 0) {
-        await supabase.from('servicios').update({ estado: 'cancelado' }).eq('id', servicio.id)
-        setServicio(prev => prev ? { ...prev, estado: 'cancelado' } : null)
-      }
-
-      generarComprobantePago(
-        nuevoPago as PagoServicio,
-        { numero_orden: servicio.numero_orden, fallecido_nombre: servicio.fallecido_nombre, importe_servicio: servicio.importe_servicio },
-        saldoRestante,
-      )
+    if (pagoErr || !nuevoPago) {
+      setSavingPago(false)
+      setPagoError(pagoErr?.message ?? 'Error desconocido al registrar el pago. Por favor reintente.')
+      return
     }
+
+    const nuevosPagos = [...pagos, nuevoPago as PagoServicio]
+    setPagos(nuevosPagos)
+    const totalPagado = nuevosPagos.reduce((s, p) => s + p.monto, 0)
+    const saldoRestante = Math.max(0, (servicio.importe_servicio ?? 0) - totalPagado)
+
+    if (servicio.importe_servicio && saldoRestante === 0) {
+      await supabase.from('servicios').update({ estado: 'cancelado' }).eq('id', servicio.id)
+      setServicio(prev => prev ? { ...prev, estado: 'cancelado' } : null)
+    }
+
+    generarComprobantePago(
+      nuevoPago as PagoServicio,
+      { numero_orden: servicio.numero_orden, fallecido_nombre: servicio.fallecido_nombre, importe_servicio: servicio.importe_servicio },
+      saldoRestante,
+    )
 
     setPagoMonto(''); setPagoForma('Efectivo'); setPagoObs('')
     setSavingPago(false)
@@ -331,8 +336,13 @@ export default function ServicioDetallePage() {
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-3">Al confirmar se imprimirá el comprobante automáticamente.</p>
+            {pagoError && (
+              <div className="mt-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                <strong>Error:</strong> {pagoError}
+              </div>
+            )}
             <div className="flex gap-3 mt-5">
-              <button onClick={() => setShowPagoModal(false)} disabled={savingPago}
+              <button onClick={() => { setShowPagoModal(false); setPagoError(null) }} disabled={savingPago}
                 className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm disabled:opacity-60">
                 Cancelar
               </button>
