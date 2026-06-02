@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import QRCode from 'react-qr-code'
-import { supabase, type DeudoFichado, type Servicio, type Comision } from '../lib/supabase'
+import { supabase, type DeudoFichado, type Servicio, type ServicioConDeudo, type Comision } from '../lib/supabase'
 import { formatMonto } from '../lib/format'
 import { useAuth } from '../lib/auth'
 
@@ -17,10 +17,12 @@ const STAFF_ROLES: SessionUser[] = [
   { nombre: 'Aplicaciones Alemanas', rol: 'Operador' },
   { nombre: 'Carlos Venialgo', rol: 'Operador' },
   { nombre: 'Cristiano Maidana', rol: 'Operador' },
+  { nombre: 'Jesica Garcete', rol: 'Operador' },
   { nombre: 'Jorfe Zariaga', rol: 'Operador' },
   { nombre: 'Jorge Amarillo', rol: 'Operador' },
   { nombre: 'Lorena Salguero', rol: 'Operador' },
   { nombre: 'Noelia Bolaño', rol: 'Operador' },
+  { nombre: 'Operario Guardia', rol: 'Operador' },
   { nombre: 'Soledad Alegre', rol: 'Operador' },
   { nombre: 'Ulises Velázquez', rol: 'Operador' },
 ]
@@ -128,7 +130,7 @@ export default function PanelPage() {
   const { user: authUser } = useAuth()
   const isAdmin = authUser?.rol === 'administrador'
   const [sessions, setSessions] = useState<DeudoFichado[]>([])
-  const [servicios, setServicios] = useState<Servicio[]>([])
+  const [servicios, setServicios] = useState<ServicioConDeudo[]>([])
   const [comisiones, setComisiones] = useState<Comision[]>([])
   const [loading, setLoading] = useState(true)
   const [asesorFiltro, setAsesorFiltro] = useState('')
@@ -185,7 +187,7 @@ export default function PanelPage() {
   async function loadServicios() {
     let query = supabase
       .from('servicios')
-      .select('*')
+      .select('*, deudo:deudos_fichados!deudo_id(*), garante:deudos_fichados!garante_id(*)')
       .order('created_at', { ascending: false })
       .limit(50)
 
@@ -195,7 +197,7 @@ export default function PanelPage() {
     }
 
     const { data, error } = await query
-    if (!error && data) setServicios(data as Servicio[])
+    if (!error && data) setServicios(data as ServicioConDeudo[])
   }
 
   async function loadPagosTotales() {
@@ -287,6 +289,28 @@ export default function PanelPage() {
   const abandonados = sessions.filter(s => s.estado === 'abandonado').length
 
   const [tipoFiltro, setTipoFiltro] = useState('')
+  const [busqueda, setBusqueda] = useState('')
+
+  function normalizar(s: string | null | undefined) {
+    return (s ?? '').toLowerCase().replace(/[\s.\-_]/g, '')
+  }
+
+  const serviciosVisibles = busqueda.trim()
+    ? servicios.filter(s => {
+        const q = normalizar(busqueda)
+        return (
+          normalizar(s.fallecido_nombre).includes(q) ||
+          normalizar(s.fallecido_dni).includes(q) ||
+          normalizar(s.deudo?.nombre).includes(q) ||
+          normalizar(s.deudo?.dni).includes(q) ||
+          normalizar(s.deudo?.whatsapp).includes(q) ||
+          normalizar(s.deudo?.telefono).includes(q) ||
+          normalizar(s.garante?.nombre).includes(q) ||
+          normalizar(s.garante?.dni).includes(q)
+        )
+      })
+    : servicios
+
   const asesoresUnicos = [...new Set(comisiones.map(c => c.asesor_nombre))].sort()
   const comisionesFiltradas = comisiones
     .filter(c => !asesorFiltro || c.asesor_nombre === asesorFiltro)
@@ -363,14 +387,45 @@ export default function PanelPage() {
 
         {/* Servicios */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-semibold text-[#1B3A6B] text-sm">Servicios registrados</h2>
-            <button
-              onClick={() => navigate('/alta-servicio')}
-              className="text-xs bg-[#1B3A6B] text-white px-3 py-1.5 rounded-lg hover:bg-[#152e57]"
-            >
-              + Nuevo
-            </button>
+          <div className="px-5 py-4 border-b border-gray-100 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-[#1B3A6B] text-sm">Servicios registrados</h2>
+              <button
+                onClick={() => navigate('/alta-servicio')}
+                className="text-xs bg-[#1B3A6B] text-white px-3 py-1.5 rounded-lg hover:bg-[#152e57]"
+              >
+                + Nuevo
+              </button>
+            </div>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+              </svg>
+              <input
+                type="text"
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                placeholder="Buscar por DNI, teléfono, fallecido, solicitante o garante..."
+                className="w-full pl-9 pr-4 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-[#1B3A6B] text-gray-700 placeholder-gray-400"
+              />
+              {busqueda && (
+                <button
+                  onClick={() => setBusqueda('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {busqueda && (
+              <p className="text-xs text-gray-400">
+                {serviciosVisibles.length === 0
+                  ? 'Sin resultados'
+                  : `${serviciosVisibles.length} resultado${serviciosVisibles.length !== 1 ? 's' : ''}`}
+              </p>
+            )}
           </div>
           {servicios.length === 0 ? (
             <div className="p-8 text-center text-gray-400 text-sm">Sin servicios registrados aún.</div>
@@ -388,7 +443,7 @@ export default function PanelPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {servicios.map(s => (
+                  {serviciosVisibles.map(s => (
                     <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 font-bold text-[#1B3A6B]">#{s.numero_orden}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{s.fallecido_nombre}</td>

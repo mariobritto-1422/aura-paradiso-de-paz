@@ -370,7 +370,7 @@ function Header() {
         <img src="/PP_jpg.png" alt="Paraíso de Paz" className="w-full h-full object-cover"
           onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
       </div>
-      <h1 className="text-lg font-semibold tracking-wide">Cochería Paraíso de Paz</h1>
+      <h1 className="text-lg font-semibold tracking-wide">Empresa Paraíso de Paz</h1>
       <p className="text-[#B8956A] text-sm mt-1 italic">Hacemos más fácil, tus momentos difíciles</p>
     </div>
   )
