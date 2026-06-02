@@ -3,3 +3,6 @@ dist
 .env
 .env.local
 *.local
+
+# Scripts de administración con credenciales — nunca subir a GitHub
+crear-usuarios.mjs
