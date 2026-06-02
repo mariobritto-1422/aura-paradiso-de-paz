@@ -43,23 +43,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Solo onAuthStateChange — no getSession() por separado.
-    // INITIAL_SESSION es el evento que reemplaza getSession() en Supabase v2.
+    let resolved = false
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    // Llamar una sola vez: la primera llamada resuelve el estado de auth.
+    // Las posteriores (ej: timeout que llega tarde) se ignoran.
+    function forceResolve(u: AuthUser | null) {
+      if (resolved) return
+      resolved = true
+      clearTimeout(timeoutId)
+      setUser(u)
+      setLoading(false)
+    }
+
+    // Timeout de seguridad: si INITIAL_SESSION no dispara en 5s (SDK colgado,
+    // token corrupto, red sin respuesta) → limpiar tokens y redirigir al login.
+    timeoutId = setTimeout(() => {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('sb-'))
+        .forEach(k => localStorage.removeItem(k))
+      forceResolve(null)
+    }, 5000)
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'INITIAL_SESSION') {
         try {
           if (session?.user?.email) {
             const u = await buildUser(session.user.id, session.user.email)
-            setUser(u)
+            forceResolve(u)
           } else {
-            setUser(null)
+            forceResolve(null)
           }
         } catch {
-          // Sesión corrupta o token inválido → limpiar y forzar login
-          await supabase.auth.signOut()
-          setUser(null)
-        } finally {
-          setLoading(false) // Siempre resuelve, sin importar qué
+          try { await supabase.auth.signOut() } catch {}
+          forceResolve(null)
         }
 
       } else if (event === 'SIGNED_IN') {
@@ -68,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const u = await buildUser(session.user.id, session.user.email)
             if (u) setUser(u)
           } catch {
-            await supabase.auth.signOut()
+            try { await supabase.auth.signOut() } catch {}
             setUser(null)
           }
         }
@@ -76,10 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
       }
-      // TOKEN_REFRESHED y otros eventos: ignorar, no llamar buildUser
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function login(email: string, password: string): Promise<string | null> {
