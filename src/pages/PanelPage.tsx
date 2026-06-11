@@ -215,11 +215,15 @@ export default function PanelPage() {
   async function loadComisiones() {
     const inicio = new Date()
     inicio.setDate(1); inicio.setHours(0, 0, 0, 0)
-    const { data } = await supabase
+    let query = supabase
       .from('comisiones')
       .select('*')
       .gte('created_at', inicio.toISOString())
       .order('created_at', { ascending: false })
+    if (authUser?.rol === 'operador') {
+      query = query.eq('asesor_nombre', authUser.nombre)
+    }
+    const { data } = await query
     if (data) setComisiones(data as Comision[])
   }
 
@@ -512,11 +516,13 @@ export default function PanelPage() {
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <select value={asesorFiltro} onChange={e => setAsesorFiltro(e.target.value)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
-                <option value="">Todos los asesores</option>
-                {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
+              {authUser?.rol === 'administrador' && (
+                <select value={asesorFiltro} onChange={e => setAsesorFiltro(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
+                  <option value="">Todos los asesores</option>
+                  {asesoresUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              )}
               <select value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value)}
                 className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none focus:border-[#1B3A6B]">
                 <option value="">Todos los tipos</option>
