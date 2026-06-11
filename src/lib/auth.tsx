@@ -101,11 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string): Promise<string | null> {
     try {
-      // Limpiar sesión previa para evitar que el SDK quede esperando un refresh
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise<void>(resolve => setTimeout(resolve, 2000)),
-      ]).catch(() => {})
+      // Limpiar sesión local antes de intentar login (sin llamada de red)
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return 'Email o contraseña incorrectos'
