@@ -14,12 +14,17 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const err = await login(email.trim().toLowerCase(), password)
-    setLoading(false)
-    if (err) {
-      setError(err)
-    } else {
-      navigate('/panel', { replace: true })
+    try {
+      const err = await login(email.trim().toLowerCase(), password)
+      if (err) {
+        setError(err)
+      } else {
+        navigate('/panel', { replace: true })
+      }
+    } catch {
+      setError('Error inesperado. Intentá de nuevo.')
+    } finally {
+      setLoading(false)
     }
   }
 

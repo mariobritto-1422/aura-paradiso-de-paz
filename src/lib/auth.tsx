@@ -100,22 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function login(email: string, password: string): Promise<string | null> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return 'Email o contraseña incorrectos'
-    if (data.user?.email) {
-      try {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return 'Email o contraseña incorrectos'
+      if (data.user?.email) {
         const u = await buildUser(data.user.id, data.user.email)
         if (!u) {
-          await supabase.auth.signOut()
-          return 'Usuario sin acceso al sistema'
+          supabase.auth.signOut().catch(() => {})
+          return 'Sin acceso al sistema. Contactar al administrador.'
         }
         setUser(u)
-      } catch {
-        await supabase.auth.signOut()
-        return 'Error al cargar el perfil. Intentá de nuevo.'
       }
+      return null
+    } catch {
+      supabase.auth.signOut().catch(() => {})
+      return 'Error al verificar el acceso. Intentá de nuevo.'
     }
-    return null
   }
 
   async function logout() {
