@@ -17,10 +17,11 @@ type Props = {
   tipo: 'ataud' | 'urna'
   value: string
   onChange: (id: string, modelo?: string, medida?: number | null, ancho?: string | null) => void
+  onStockLoaded?: (count: number) => void
   required?: boolean
 }
 
-export function StockSelector({ tipo, value, onChange, required }: Props) {
+export function StockSelector({ tipo, value, onChange, onStockLoaded, required }: Props) {
   const [rows, setRows] = useState<StockRow[]>([])
   const [loading, setLoading] = useState(false)
   const [modeloSel, setModeloSel] = useState('')
@@ -36,8 +37,10 @@ export function StockSelector({ tipo, value, onChange, required }: Props) {
       .eq('disponible', true)
       .order('modelo')
       .then(({ data }) => {
-        setRows((data as StockRow[]) ?? [])
+        const rows = (data as StockRow[]) ?? []
+        setRows(rows)
         setLoading(false)
+        onStockLoaded?.(rows.length)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipo])

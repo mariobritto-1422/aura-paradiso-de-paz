@@ -54,7 +54,7 @@ type ServicioForm = {
   fallecido_talla: string; fallecido_peso_kg: string
   fallecido_causa_fallecimiento: string
   tipo_servicio: string
-  ataud_tipo: string; ataud_medida: string; ataud_ancho: string
+  ataud_tipo: string; ataud_medida: string; ataud_ancho: string; ataud_descripcion: string
   sala: string; sala_domicilio: string
   capilla_ardiente: string; tipo_entierro: string
   preparador: string
@@ -88,7 +88,7 @@ const EMPTY: ServicioForm = {
   fallecido_beneficio_nro: '',
   fallecido_talla: '', fallecido_peso_kg: '', fallecido_causa_fallecimiento: '',
   tipo_servicio: '',
-  ataud_tipo: '', ataud_medida: '', ataud_ancho: '',
+  ataud_tipo: '', ataud_medida: '', ataud_ancho: '', ataud_descripcion: '',
   sala: '', sala_domicilio: '',
   capilla_ardiente: '', tipo_entierro: '',
   preparador: '',
@@ -306,7 +306,7 @@ function ConfirmModal({ form, deudo, garante, onCancel, onConfirm, saving, saveE
     ['DNI', form.fallecido_dni || '—'],
     ['Tipo de servicio', form.tipo_servicio || '—'],
     ['Sala', salaDisplay],
-    ['Ataúd', form.ataud_tipo || '—'],
+    ['Ataúd', form.ataud_tipo || form.ataud_descripcion || '—'],
     ['Tipo de entierro', form.tipo_entierro || '—'],
     ['Destino final', form.destino_final || '—'],
     ['Preparador', form.preparador || '—'],
@@ -430,6 +430,7 @@ export default function AltaServicioPage() {
   const [destinos, setDestinos] = useState<string[]>([])
   const [asesores, setAsesores] = useState<{ nombre: string; whatsapp: string | null }[]>([])
   const [urnas, setUrnas] = useState<string[]>([])
+  const [ataudStockVacio, setAtaudStockVacio] = useState(false)
   const [comisionCfg, setComisionCfg] = useState<{ base_minima: number; porcentaje: number; monto_fijo_obra_social: number } | null>(null)
 
   useEffect(() => {
@@ -463,7 +464,7 @@ export default function AltaServicioPage() {
   function set(field: keyof ServicioForm, value: string | boolean | number) {
     setForm(prev => {
       const next = { ...prev, [field]: value }
-      if (field === 'tipo_servicio') { next.ataud_urna_id = ''; next.ataud_tipo = '' }
+      if (field === 'tipo_servicio') { next.ataud_urna_id = ''; next.ataud_tipo = ''; next.ataud_descripcion = ''; setAtaudStockVacio(false) }
       return next
     })
   }
@@ -533,6 +534,7 @@ export default function AltaServicioPage() {
       ataud_tipo:                  form.ataud_tipo || null,
       ataud_medida:                form.ataud_medida ? parseInt(form.ataud_medida) : null,
       ataud_ancho:                 form.ataud_ancho || null,
+      ataud_descripcion:           form.ataud_descripcion || null,
       sala:                        form.sala || null,
       sala_domicilio:              form.sala === 'Domicilio' ? form.domicilio_velatorio || null : null,
       domicilio_velatorio:         form.sala === 'Domicilio' ? form.domicilio_velatorio || null : null,
@@ -867,37 +869,52 @@ export default function AltaServicioPage() {
                 </Field>
               </div>
 
-              {/* Ataúd — selector de stock */}
+              {/* Ataúd — selector de stock o ingreso manual */}
               {stockTipo === 'ataud' && (
                 <div className="sm:col-span-2">
-                  <Field label="Ataúd">
-                    <StockSelector
-                      tipo="ataud"
-                      value={form.ataud_urna_id}
-                      onChange={(id, modelo, medida, ancho) => {
-                        set('ataud_urna_id', id)
-                        if (modelo) set('ataud_tipo', modelo)
-                        if (medida != null) set('ataud_medida', String(medida))
-                        if (ancho) set('ataud_ancho', ancho)
-                      }}
-                    />
-                  </Field>
-                  {form.ataud_urna_id && (
-                    <div className="grid grid-cols-2 gap-3 mt-3">
-                      <Field label="Medida (cm)">
-                        <input type="number" min={1} value={form.ataud_medida}
-                          onChange={e => set('ataud_medida', e.target.value)}
-                          className={IC} placeholder="Auto o ingresar manualmente" />
+                  {ataudStockVacio ? (
+                    <Field label="Ataúd (ingreso manual)">
+                      <input
+                        type="text"
+                        value={form.ataud_descripcion}
+                        onChange={e => set('ataud_descripcion', e.target.value)}
+                        className={IC}
+                        placeholder="Descripción del ataúd..."
+                      />
+                    </Field>
+                  ) : (
+                    <>
+                      <Field label="Ataúd">
+                        <StockSelector
+                          tipo="ataud"
+                          value={form.ataud_urna_id}
+                          onChange={(id, modelo, medida, ancho) => {
+                            set('ataud_urna_id', id)
+                            if (modelo) set('ataud_tipo', modelo)
+                            if (medida != null) set('ataud_medida', String(medida))
+                            if (ancho) set('ataud_ancho', ancho)
+                          }}
+                          onStockLoaded={count => setAtaudStockVacio(count === 0)}
+                        />
                       </Field>
-                      <Field label="Ancho">
-                        <select value={form.ataud_ancho}
-                          onChange={e => set('ataud_ancho', e.target.value)} className={IC}>
-                          <option value="">Seleccionar...</option>
-                          <option>Estándar</option>
-                          <option>SuperMedida</option>
-                        </select>
-                      </Field>
-                    </div>
+                      {form.ataud_urna_id && (
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <Field label="Medida (cm)">
+                            <input type="number" min={1} value={form.ataud_medida}
+                              onChange={e => set('ataud_medida', e.target.value)}
+                              className={IC} placeholder="Auto o ingresar manualmente" />
+                          </Field>
+                          <Field label="Ancho">
+                            <select value={form.ataud_ancho}
+                              onChange={e => set('ataud_ancho', e.target.value)} className={IC}>
+                              <option value="">Seleccionar...</option>
+                              <option>Estándar</option>
+                              <option>SuperMedida</option>
+                            </select>
+                          </Field>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
