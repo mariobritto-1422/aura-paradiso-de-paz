@@ -8,7 +8,6 @@ export type AuthUser = {
   email: string
   nombre: string
   rol: Rol
-  passwordChanged: boolean
 }
 
 type AuthCtx = {
@@ -16,7 +15,6 @@ type AuthCtx = {
   loading: boolean
   login: (email: string, password: string) => Promise<string | null>
   logout: () => Promise<void>
-  markPasswordChanged: () => Promise<void>
 }
 
 const Ctx = createContext<AuthCtx | null>(null)
@@ -24,18 +22,18 @@ const Ctx = createContext<AuthCtx | null>(null)
 async function fetchPerfil(email: string) {
   const { data, error } = await supabase
     .from('usuarios_sistema')
-    .select('nombre, rol, password_changed')
+    .select('nombre, rol')
     .eq('email', email)
     .eq('activo', true)
     .single()
   if (error || !data) return null
-  return { nombre: data.nombre, rol: data.rol as Rol, password_changed: data.password_changed }
+  return { nombre: data.nombre, rol: data.rol as Rol }
 }
 
 async function buildUser(id: string, email: string): Promise<AuthUser | null> {
   const perfil = await fetchPerfil(email)
   if (!perfil) return null
-  return { id, email, nombre: perfil.nombre, rol: perfil.rol, passwordChanged: perfil.password_changed }
+  return { id, email, nombre: perfil.nombre, rol: perfil.rol }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -125,17 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  async function markPasswordChanged() {
-    if (!user) return
-    await supabase
-      .from('usuarios_sistema')
-      .update({ password_changed: true })
-      .eq('email', user.email)
-    setUser(prev => prev ? { ...prev, passwordChanged: true } : null)
-  }
-
   return (
-    <Ctx.Provider value={{ user, loading, login, logout, markPasswordChanged }}>
+    <Ctx.Provider value={{ user, loading, login, logout }}>
       {children}
     </Ctx.Provider>
   )

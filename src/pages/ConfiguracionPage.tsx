@@ -525,7 +525,6 @@ type UsuarioSistema = {
   email: string
   rol: 'administrador' | 'operador'
   activo: boolean
-  password_changed: boolean
   created_at: string
 }
 
@@ -552,12 +551,6 @@ function UsuariosTab() {
     setUsers(prev => prev.map(x => x.id === u.id ? { ...x, rol: nuevoRol } : x))
   }
 
-  async function resetearContrasena(u: UsuarioSistema) {
-    if (!confirm(`¿Forzar cambio de contraseña para ${u.nombre}? La próxima vez que ingrese deberá elegir una nueva.`)) return
-    await supabase.from('usuarios_sistema').update({ password_changed: false }).eq('id', u.id)
-    setUsers(prev => prev.map(x => x.id === u.id ? { ...x, password_changed: false } : x))
-  }
-
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
       <CardHeader
@@ -570,9 +563,6 @@ function UsuariosTab() {
             <div className="flex-1 min-w-[160px]">
               <p className="text-sm font-medium text-gray-800">{u.nombre}</p>
               <p className="text-xs text-gray-400">{u.email}</p>
-              {!u.password_changed && (
-                <p className="text-xs text-amber-600 mt-0.5">Pendiente cambio de contraseña</p>
-              )}
             </div>
             <select
               value={u.rol}
@@ -584,13 +574,6 @@ function UsuariosTab() {
             </select>
             <ToggleBtn active={u.activo} labelOn="Activo" labelOff="Inactivo"
               onClick={() => toggleActivo(u)} />
-            <button
-              onClick={() => resetearContrasena(u)}
-              className="text-xs text-gray-400 hover:text-amber-600 px-2 py-1 flex-shrink-0"
-              title="Forzar cambio de contraseña en próximo login"
-            >
-              Reset pwd
-            </button>
           </li>
         ))}
       </ListBody>
