@@ -8,65 +8,7 @@ import { useAuth } from '../lib/auth'
 const FORM_URL_SOL = `${window.location.origin}/?rol=solicitante`
 const FORM_URL_GAR = `${window.location.origin}/?rol=garante`
 
-// ─── Session ──────────────────────────────────────────────────────────────────
-
-type SessionUser = { nombre: string; rol: 'Administrador' | 'Operador' }
-
-const STAFF_ROLES: SessionUser[] = [
-  { nombre: 'Daniel Alegre', rol: 'Administrador' },
-  { nombre: 'Aplicaciones Alemanas', rol: 'Operador' },
-  { nombre: 'Carlos Venialgo', rol: 'Operador' },
-  { nombre: 'Cristiano Maidana', rol: 'Operador' },
-  { nombre: 'Jesica Garcete', rol: 'Operador' },
-  { nombre: 'Jorfe Zariaga', rol: 'Operador' },
-  { nombre: 'Jorge Amarillo', rol: 'Operador' },
-  { nombre: 'Lorena Salguero', rol: 'Operador' },
-  { nombre: 'Noelia Bolaño', rol: 'Operador' },
-  { nombre: 'Operario Guardia', rol: 'Operador' },
-  { nombre: 'Soledad Alegre', rol: 'Operador' },
-  { nombre: 'Ulises Velázquez', rol: 'Operador' },
-]
-
-function getStoredSession(): SessionUser | null {
-  try { return JSON.parse(localStorage.getItem('aura_session_user') ?? 'null') } catch { return null }
-}
-
-function saveSession(u: SessionUser) {
-  localStorage.setItem('aura_session_user', JSON.stringify(u))
-}
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SessionModal({ onSelect }: { onSelect: (u: SessionUser) => void }) {
-  return (
-    <div className="fixed inset-0 bg-[#1B3A6B]/95 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl p-7 w-full max-w-sm shadow-2xl">
-        <div className="flex justify-center mb-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#B8956A]/40">
-            <img src="/PP_jpg.png" alt="" className="w-full h-full object-cover"
-              onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none' }} />
-          </div>
-        </div>
-        <h2 className="text-center font-semibold text-[#1B3A6B] mb-1">¿Quién opera?</h2>
-        <p className="text-center text-xs text-gray-400 mb-6">Seleccioná tu nombre para continuar.</p>
-        <div className="space-y-2">
-          {STAFF_ROLES.map(u => (
-            <button
-              key={u.nombre}
-              onClick={() => onSelect(u)}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 hover:border-[#1B3A6B] hover:bg-[#1B3A6B]/5 transition-colors text-left"
-            >
-              <span className="text-sm font-medium text-gray-800">{u.nombre}</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.rol === 'Administrador' ? 'bg-[#1B3A6B]/10 text-[#1B3A6B]' : 'bg-gray-100 text-gray-500'}`}>
-                {u.rol}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function DeleteModal({ servicio, onCancel, onConfirm, deleting }: {
   servicio: Servicio
@@ -138,8 +80,6 @@ export default function PanelPage() {
   const qrGarRef = useRef<HTMLDivElement>(null)
 
   const [pagosTotales, setPagosTotales] = useState<Map<string, number>>(new Map())
-  const [sessionUser, setSessionUser] = useState<SessionUser | null>(getStoredSession)
-  const [showSessionModal, setShowSessionModal] = useState(!getStoredSession())
   const [deleteTarget, setDeleteTarget] = useState<Servicio | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [blockedMsg, setBlockedMsg] = useState<string | null>(null)
@@ -246,18 +186,8 @@ export default function PanelPage() {
     URL.revokeObjectURL(url)
   }
 
-  function handleSelectUser(u: SessionUser) {
-    saveSession(u)
-    setSessionUser(u)
-    setShowSessionModal(false)
-  }
-
   function requestDelete(s: Servicio) {
-    if (!sessionUser) {
-      setShowSessionModal(true)
-      return
-    }
-    if (sessionUser.rol !== 'Administrador' && s.estado !== 'activo') {
+    if (!isAdmin && s.estado !== 'activo') {
       setBlockedMsg('Solo un Administrador puede eliminar este servicio.')
       return
     }
@@ -337,16 +267,9 @@ export default function PanelPage() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="font-semibold text-base">Panel AURA — Paraíso de Paz</h1>
-          {sessionUser ? (
-            <button
-              onClick={() => setShowSessionModal(true)}
-              className="text-[#B8956A] text-xs hover:text-white transition-colors"
-            >
-              {sessionUser.nombre} · {sessionUser.rol} · cambiar
-            </button>
-          ) : (
-            <p className="text-[#B8956A] text-xs">Sesiones en tiempo real</p>
-          )}
+          <p className="text-[#B8956A] text-xs">
+            {authUser?.nombre} · {authUser?.rol}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
@@ -367,7 +290,7 @@ export default function PanelPage() {
           >
             Actualizar
           </button>
-          {sessionUser?.rol === 'Administrador' && (
+          {isAdmin && (
             <button
               onClick={() => setShowLimpiarModal(true)}
               className="text-xs text-red-300 border border-red-300/40 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-colors"
@@ -567,7 +490,7 @@ export default function PanelPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-500">
-                        {c.tipo === 'obra_social' && sessionUser?.rol !== 'Administrador'
+                        {c.tipo === 'obra_social' && !isAdmin
                           ? '—'
                           : c.importe_servicio != null ? `$${c.importe_servicio.toLocaleString('es-AR')}` : '—'}
                       </td>
@@ -610,7 +533,7 @@ export default function PanelPage() {
                       <th className="px-4 py-3 font-medium">Relación</th>
                       <th className="px-4 py-3 font-medium">Canal</th>
                       <th className="px-4 py-3 font-medium">Hora</th>
-                      {sessionUser?.rol === 'Administrador' && <th className="px-4 py-3 font-medium"></th>}
+                      {isAdmin && <th className="px-4 py-3 font-medium"></th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -631,7 +554,7 @@ export default function PanelPage() {
                             hour: '2-digit', minute: '2-digit',
                           })}
                         </td>
-                        {sessionUser?.rol === 'Administrador' && (
+                        {isAdmin && (
                           <td className="px-4 py-3">
                             <button
                               onClick={() => setDeleteSessionTarget(s)}
@@ -694,8 +617,6 @@ export default function PanelPage() {
       </div>
 
       {/* Modals */}
-      {showSessionModal && <SessionModal onSelect={handleSelectUser} />}
-
       {deleteTarget && (
         <DeleteModal
           servicio={deleteTarget}
