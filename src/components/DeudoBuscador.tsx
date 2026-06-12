@@ -99,7 +99,7 @@ export function DeudoBuscador({ selected, onSelect, onFicharNuevo, rolFilter }: 
       </div>
 
       {open && results.length > 0 && (
-        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
           {results.map(d => (
             <button
               key={d.id}
@@ -115,7 +115,7 @@ export function DeudoBuscador({ selected, onSelect, onFicharNuevo, rolFilter }: 
       )}
 
       {open && noResults && !loading && (
-        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4">
           <p className="text-sm text-gray-500 mb-3">No se encontraron resultados para "{query}".</p>
           {onFicharNuevo && (
             <button

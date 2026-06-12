@@ -143,9 +143,9 @@ function Section({ title, badge, isOpen, onToggle, children }: {
   onToggle: () => void; children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm">
       <button type="button" onClick={onToggle}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors">
+        className={`w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-gray-50 transition-colors ${isOpen ? 'rounded-t-2xl' : 'rounded-2xl'}`}>
         {badge && (
           <span className="text-xs font-semibold text-[#B8956A] bg-[#B8956A]/10 px-2 py-0.5 rounded-full">{badge}</span>
         )}
