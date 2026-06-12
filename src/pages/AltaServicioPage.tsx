@@ -112,6 +112,14 @@ const EMPTY: ServicioForm = {
   domicilio_velatorio: '',
 }
 
+type ManualPersona = {
+  nombre: string; dni: string; fecha_nacimiento: string
+  celular: string; domicilio: string; relacion: string
+}
+const EMPTY_PERSONA: ManualPersona = {
+  nombre: '', dni: '', fecha_nacimiento: '', celular: '', domicilio: '', relacion: '',
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getRequiredDocs(tipo: string, obraSocial: string, destino: string): string[] {
@@ -288,6 +296,71 @@ function FicharModal({ onClose, onSuccess }: {
   )
 }
 
+function ModeToggle({ mode, onQR, onManual }: {
+  mode: 'qr' | 'manual'; onQR: () => void; onManual: () => void
+}) {
+  const base = 'px-4 py-2 text-xs font-medium transition-colors'
+  const active = 'bg-[#1B3A6B] text-white'
+  const idle = 'text-gray-500 hover:text-gray-700'
+  return (
+    <div className="flex border border-gray-200 rounded-xl overflow-hidden w-fit mb-3">
+      <button type="button" onClick={onQR} className={`${base} ${mode === 'qr' ? active : idle}`}>
+        Registrado por QR
+      </button>
+      <button type="button" onClick={onManual} className={`${base} ${mode === 'manual' ? active : idle}`}>
+        Ingresar manualmente
+      </button>
+    </div>
+  )
+}
+
+function ManualPersonaForm({ value, onChange }: {
+  value: ManualPersona; onChange: (v: ManualPersona) => void
+}) {
+  function ch(field: keyof ManualPersona, val: string) {
+    onChange({ ...value, [field]: val })
+  }
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">
+            Apellido y Nombre
+          </label>
+          <input type="text" value={value.nombre} onChange={e => ch('nombre', e.target.value)}
+            className={IC} placeholder="Apellido, Nombre completo" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">DNI</label>
+          <input type="text" value={value.dni} onChange={e => ch('dni', e.target.value)}
+            className={IC} placeholder="Sin puntos" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Fecha de nacimiento</label>
+          <DateInput value={value.fecha_nacimiento} onChange={iso => ch('fecha_nacimiento', iso)} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Celular</label>
+          <input type="tel" value={value.celular} onChange={e => ch('celular', e.target.value)}
+            className={IC} placeholder="Ej: 3764 000000" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Domicilio</label>
+          <input type="text" value={value.domicilio} onChange={e => ch('domicilio', e.target.value)}
+            className={IC} placeholder="Calle, número, barrio..." />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wide">Relación con el fallecido</label>
+          <select value={value.relacion} onChange={e => ch('relacion', e.target.value)} className={IC}>
+            <option value="">Seleccionar...</option>
+            {['Cónyuge', 'Hijo/a', 'Hermano/a', 'Padre/Madre', 'Otro'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ConfirmModal({ form, deudo, garante, onCancel, onConfirm, saving, saveError }: {
   form: ServicioForm
   deudo: DeudoFichado | null
@@ -421,6 +494,10 @@ export default function AltaServicioPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [showFichar, setShowFichar] = useState(false)
+  const [deudoMode, setDeudoMode] = useState<'qr' | 'manual'>('qr')
+  const [garanteMode, setGaranteMode] = useState<'qr' | 'manual'>('qr')
+  const [manualDeudo, setManualDeudo] = useState<ManualPersona>(EMPTY_PERSONA)
+  const [manualGarante, setManualGarante] = useState<ManualPersona>(EMPTY_PERSONA)
   const [showConfirm, setShowConfirm] = useState(false)
   const [screen, setScreen] = useState<'form' | 'success'>('form')
   const [savedOrden, setSavedOrden] = useState(0)
@@ -512,10 +589,47 @@ export default function AltaServicioPage() {
 
   async function handleConfirm() {
     setSaving(true)
+
+    // Si alguno fue cargado manualmente, crear el registro en deudos_fichados primero
+    let deudoId = form.deudo_id || null
+    let garanteId = form.garante_id || null
+
+    if (deudoMode === 'manual' && manualDeudo.nombre.trim()) {
+      const { data: d } = await supabase.from('deudos_fichados').insert({
+        nombre: manualDeudo.nombre.trim(),
+        dni: manualDeudo.dni || null,
+        fecha_nacimiento: manualDeudo.fecha_nacimiento || null,
+        telefono: manualDeudo.celular || null,
+        whatsapp: manualDeudo.celular || null,
+        domicilio: manualDeudo.domicilio || null,
+        relacion_fallecido: manualDeudo.relacion || null,
+        session_token: crypto.randomUUID(),
+        estado: 'completo',
+        rol: 'solicitante',
+      }).select('id').single()
+      if (d) deudoId = (d as { id: string }).id
+    }
+
+    if (garanteMode === 'manual' && manualGarante.nombre.trim()) {
+      const { data: g } = await supabase.from('deudos_fichados').insert({
+        nombre: manualGarante.nombre.trim(),
+        dni: manualGarante.dni || null,
+        fecha_nacimiento: manualGarante.fecha_nacimiento || null,
+        telefono: manualGarante.celular || null,
+        whatsapp: manualGarante.celular || null,
+        domicilio: manualGarante.domicilio || null,
+        relacion_fallecido: manualGarante.relacion || null,
+        session_token: crypto.randomUUID(),
+        estado: 'completo',
+        rol: 'garante',
+      }).select('id').single()
+      if (g) garanteId = (g as { id: string }).id
+    }
+
     const asesorFinal = form.asesor === 'Otro' ? form.asesor_custom : form.asesor
     const payload = {
-      deudo_id:                    form.deudo_id || null,
-      garante_id:                  form.garante_id || null,
+      deudo_id:                    deudoId,
+      garante_id:                  garanteId,
       fallecido_nombre:            form.fallecido_nombre,
       fallecido_dni:               form.fallecido_dni || null,
       fallecido_fecha_nacimiento:  form.fallecido_fecha_nacimiento || null,
@@ -684,6 +798,10 @@ export default function AltaServicioPage() {
     setRequiredDocs([])
     setScreen('form')
     setOpen({ s1: true, s2: true, s3: false, s4: true, s5: true })
+    setDeudoMode('qr')
+    setGaranteMode('qr')
+    setManualDeudo(EMPTY_PERSONA)
+    setManualGarante(EMPTY_PERSONA)
   }
 
   const stockTipo: 'ataud' | 'urna' | null =
@@ -1001,41 +1119,61 @@ export default function AltaServicioPage() {
           {/* S4 — Deudo / Solicitante */}
           <Section badge="4" title="Solicitante y Garante" isOpen={open.s4} onToggle={() => toggle('s4')}>
             <div className="space-y-5">
+              {/* Solicitante */}
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Solicitante</p>
-                <p className="text-xs text-gray-400 mb-2">Buscá al solicitante que completó el formulario QR.</p>
-                <DeudoBuscador
-                  selected={selectedDeudo}
-                  onSelect={handleDeudoSelect}
-                  onFicharNuevo={() => setShowFichar(true)}
+                <ModeToggle
+                  mode={deudoMode}
+                  onQR={() => { setDeudoMode('qr'); setManualDeudo(EMPTY_PERSONA) }}
+                  onManual={() => { setDeudoMode('manual'); setSelectedDeudo(null); set('deudo_id', '') }}
                 />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Garante</p>
-                {selectedGarante ? (
-                  <div className="flex items-center gap-3 p-3 bg-[#B8956A]/10 border border-[#B8956A]/30 rounded-xl">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-[#B8956A] font-medium uppercase tracking-wide mb-0.5">Garante</p>
-                      <p className="font-medium text-sm text-gray-800 truncate">{selectedGarante.nombre}</p>
-                      <p className="text-xs text-gray-500">DNI: {selectedGarante.dni ?? '—'} · {selectedGarante.relacion_fallecido ?? '—'}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedGarante(null); set('garante_id', '') }}
-                      className="text-xs text-gray-400 hover:text-gray-600 underline flex-shrink-0"
-                    >
-                      Cambiar
-                    </button>
-                  </div>
-                ) : (
+                {deudoMode === 'qr' ? (
                   <>
-                    <p className="text-xs text-gray-400 mb-2">Buscá al garante que completó el formulario QR de garante.</p>
+                    <p className="text-xs text-gray-400 mb-2">Buscá al solicitante que completó el formulario QR.</p>
                     <DeudoBuscador
-                      selected={null}
-                      onSelect={d => { if (d) { setSelectedGarante(d); set('garante_id', d.id) } }}
-                      rolFilter="garante"
+                      selected={selectedDeudo}
+                      onSelect={handleDeudoSelect}
+                      onFicharNuevo={() => setShowFichar(true)}
                     />
                   </>
+                ) : (
+                  <ManualPersonaForm value={manualDeudo} onChange={setManualDeudo} />
+                )}
+              </div>
+              {/* Garante */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Garante</p>
+                <ModeToggle
+                  mode={garanteMode}
+                  onQR={() => { setGaranteMode('qr'); setManualGarante(EMPTY_PERSONA) }}
+                  onManual={() => { setGaranteMode('manual'); setSelectedGarante(null); set('garante_id', '') }}
+                />
+                {garanteMode === 'qr' ? (
+                  selectedGarante ? (
+                    <div className="flex items-center gap-3 p-3 bg-[#B8956A]/10 border border-[#B8956A]/30 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-[#B8956A] font-medium uppercase tracking-wide mb-0.5">Garante</p>
+                        <p className="font-medium text-sm text-gray-800 truncate">{selectedGarante.nombre}</p>
+                        <p className="text-xs text-gray-500">DNI: {selectedGarante.dni ?? '—'} · {selectedGarante.relacion_fallecido ?? '—'}</p>
+                      </div>
+                      <button type="button"
+                        onClick={() => { setSelectedGarante(null); set('garante_id', '') }}
+                        className="text-xs text-gray-400 hover:text-gray-600 underline flex-shrink-0">
+                        Cambiar
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-gray-400 mb-2">Buscá al garante que completó el formulario QR de garante.</p>
+                      <DeudoBuscador
+                        selected={null}
+                        onSelect={d => { if (d) { setSelectedGarante(d); set('garante_id', d.id) } }}
+                        rolFilter="garante"
+                      />
+                    </>
+                  )
+                ) : (
+                  <ManualPersonaForm value={manualGarante} onChange={setManualGarante} />
                 )}
               </div>
             </div>
@@ -1139,8 +1277,8 @@ export default function AltaServicioPage() {
       {showConfirm && (
         <ConfirmModal
           form={form}
-          deudo={selectedDeudo}
-          garante={selectedGarante}
+          deudo={selectedDeudo ?? (deudoMode === 'manual' && manualDeudo.nombre ? { nombre: manualDeudo.nombre, dni: manualDeudo.dni } as DeudoFichado : null)}
+          garante={selectedGarante ?? (garanteMode === 'manual' && manualGarante.nombre ? { nombre: manualGarante.nombre, dni: manualGarante.dni } as DeudoFichado : null)}
           onCancel={() => { setShowConfirm(false); setSaveError(null) }}
           onConfirm={handleConfirm}
           saving={saving}

@@ -150,9 +150,8 @@ export default function PanelPage() {
 
   useEffect(() => {
     loadSessions()
-    loadServicios()
+    loadServicios()  // internamente llama a loadPagosTotales con los IDs
     loadComisiones()
-    loadPagosTotales()
 
     const channel = supabase
       .channel('deudos_realtime')
@@ -175,35 +174,42 @@ export default function PanelPage() {
   }, [])
 
   async function loadSessions() {
-    const { data } = await supabase
-      .from('deudos_fichados')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-    if (data) setSessions(data as DeudoFichado[])
-    setLoading(false)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10000)
+    try {
+      const { data } = await supabase
+        .from('deudos_fichados')
+        .select('id, nombre, dni, whatsapp, email, relacion_fallecido, canal_notificacion, created_at, rol, estado')
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .abortSignal(ctrl.signal)
+      if (data) setSessions(data as DeudoFichado[])
+    } catch {
+      // network error or 10s timeout — empty sessions, no crash
+    } finally {
+      clearTimeout(timer)
+      setLoading(false)
+    }
   }
 
   async function loadServicios() {
-    let query = supabase
+    const { data, error } = await supabase
       .from('servicios')
-      .select('*, deudo:deudos_fichados!deudo_id(*), garante:deudos_fichados!garante_id(*)')
+      .select('id,numero_orden,fallecido_nombre,fallecido_dni,tipo_servicio,destino_final,created_at,importe_servicio,estado,deudo:deudos_fichados!deudo_id(nombre,dni,whatsapp,telefono),garante:deudos_fichados!garante_id(nombre,dni)')
       .order('created_at', { ascending: false })
       .limit(50)
-
-    // Operador solo ve sus propios servicios
-    if (authUser?.rol === 'operador' && authUser.nombre) {
-      query = query.eq('asesor', authUser.nombre)
+    if (!error && data) {
+      setServicios(data as unknown as ServicioConDeudo[])
+      loadPagosTotales(data.map(s => s.id))
     }
-
-    const { data, error } = await query
-    if (!error && data) setServicios(data as ServicioConDeudo[])
   }
 
-  async function loadPagosTotales() {
+  async function loadPagosTotales(ids: string[]) {
+    if (!ids.length) return
     const { data } = await supabase
       .from('pagos_servicio')
       .select('servicio_id, monto')
+      .in('servicio_id', ids)
     if (!data) return
     const map = new Map<string, number>()
     for (const p of data as { servicio_id: string; monto: number }[]) {

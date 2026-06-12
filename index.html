@@ -10,6 +10,22 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Version gate: runs synchronously BEFORE the ES module bundle loads.
+         This ensures createClient() in supabase.ts reads a clean localStorage. -->
+    <script>
+      (function () {
+        var V = '1.0.2';
+        var KEY = 'aura_app_version';
+        if (localStorage.getItem(KEY) !== V) {
+          Object.keys(localStorage)
+            .filter(function (k) {
+              return k.startsWith('sb-') || k === 'aura_session_user' || k === 'aura_panel_auth';
+            })
+            .forEach(function (k) { localStorage.removeItem(k); });
+          localStorage.setItem(KEY, V);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
